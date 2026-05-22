@@ -1,0 +1,7 @@
+js/config.js
+instructions.md
+mockup.html
+USER_CONFIG.md
+node_modules/
+test-results/
+playwright-report/

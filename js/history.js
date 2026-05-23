@@ -8,9 +8,10 @@ const HIST_PRESETS = [
   { label: '3M', days: 90 },
 ];
 
-let _histFrom = null; // YYYY-MM-DD
-let _histTo   = null; // YYYY-MM-DD
-let _histRows = null;
+let _histFrom   = null; // YYYY-MM-DD
+let _histTo     = null; // YYYY-MM-DD
+let _histRows   = null;
+let _histConfig = null; // inventoryConfig cache for bag color lookup
 
 function _todayStr() {
   return new Date().toLocaleDateString('en-CA');
@@ -104,11 +105,13 @@ async function _fetchAndRenderHist() {
   if (content) content.innerHTML = '';
 
   try {
-    const needsConfig = !getDashboardData();
-    const [result] = await Promise.all([
+    const [result, dashResult] = await Promise.all([
       API.getHistory({ from: _histFrom, to: _histTo }),
-      needsConfig ? API.getDashboard().then(d => { dashboardData = d; }) : Promise.resolve()
+      _histConfig ? Promise.resolve(null) : API.getDashboard()
     ]);
+    if (dashResult && dashResult.inventoryConfig) {
+      _histConfig = dashResult.inventoryConfig;
+    }
     _histRows = result.rows || [];
     _renderHistContent();
   } catch (err) {
@@ -153,10 +156,8 @@ function _renderHistContent() {
 }
 
 function _bagColorForType(bagType) {
-  if (!bagType) return null;
-  const dash = typeof getDashboardData === 'function' ? getDashboardData() : null;
-  const cfg  = dash?.inventoryConfig || [];
-  const item = cfg.find(i => bagDisplayName(i) === bagType || i.name === bagType);
+  if (!bagType || !_histConfig) return null;
+  const item = _histConfig.find(i => bagDisplayName(i) === bagType || i.name === bagType);
   return item ? bagColorsFor(item).color : null;
 }
 

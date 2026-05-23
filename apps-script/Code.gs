@@ -18,8 +18,8 @@ var TAB = {
 };
 
 var HEADERS = {
-  Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type', 'PatientID', 'Fill Volume (L)'],
-  Inventory:          ['DateTime', 'Item Name', 'Count', 'PatientID'],
+  Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type', 'PatientID', 'Fill Volume (L)', 'DeviceToken'],
+  Inventory:          ['DateTime', 'Item Name', 'Count', 'PatientID', 'DeviceToken'],
   Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName', 'maxHours', 'reorderDays'],
   Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used', 'PasswordHash', 'ActivePatientID', 'Theme', 'Language'],
   Patients:           ['PatientID', 'Name', 'DOB', 'Comment', 'Active', 'LastUpdated']
@@ -92,7 +92,8 @@ function logMeasurement(data) {
     data.bagType                 || '',
     data.measurementType         || '',
     data.patientId               || '',
-    parseFloat(data.fillVolume)  || ''
+    parseFloat(data.fillVolume)  || '',
+    data.token                   || ''
   ]);
   _touchDataLastUpdated();
   return { success: true, message: 'Measurement logged.' };
@@ -103,7 +104,7 @@ function updateInventory(data) {
   var datetime = data.datetime || data.date || '';
   var items    = data.items || [];
   items.forEach(function(item) {
-    sheet.appendRow([datetime, item.name, parseInt(item.count) || 0, data.patientId || '']);
+    sheet.appendRow([datetime, item.name, parseInt(item.count) || 0, data.patientId || '', data.token || '']);
   });
   _touchDataLastUpdated();
   return { success: true, message: 'Inventory updated.' };
@@ -520,12 +521,20 @@ function touchToken(token) {
 function readInventoryConfig() {
   var configSheet = ss().getSheetByName(TAB.CONFIG);
   var result = [];
+  var globalMaxHours = null;
   if (configSheet && configSheet.getLastRow() > 1) {
     var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 10).getValues();
+    rows.forEach(function(row) {
+      if (String(row[0]) === 'meta' && String(row[1]) === 'maxExchangeHours') {
+        var v = row[2];
+        if (v !== '' && v !== null) globalMaxHours = parseFloat(v) || null;
+      }
+    });
     rows.forEach(function(row) {
       if (String(row[0]) === 'inventory') {
         var active = row[5] === '' || row[5] === true || String(row[5]).toUpperCase() === 'TRUE';
         if (!active) return;
+        var itemMaxHours = row[8] !== '' && row[8] !== null ? parseFloat(row[8]) : null;
         result.push({
           name:        String(row[1]),
           min:         parseInt(row[2]) || 0,
@@ -536,7 +545,7 @@ function readInventoryConfig() {
             if (typeof v === 'number') return (Math.round(v * 10000) / 100) + '%';
             return v ? String(v) : '';
           })(row[7]),
-          maxHours:    row[8] !== '' && row[8] !== null ? parseFloat(row[8]) : null,
+          maxHours:    itemMaxHours !== null ? itemMaxHours : globalMaxHours,
           reorderDays: row[9] !== '' && row[9] !== null ? parseInt(row[9]) : null
         });
       }

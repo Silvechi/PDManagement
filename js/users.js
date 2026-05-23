@@ -104,13 +104,18 @@ function _userCardHtml(p) {
   const isCurrent = _activePatientId === p.patientId;
   return `
     <div class="user-card${isCurrent ? ' user-card-active' : ''}${!p.active ? ' user-card-inactive' : ''}">
-      <div class="user-card-body" onclick="_usersSelectAndGo('${escHtml(p.patientId)}', '${escHtml(p.name).replace(/'/g, "\\'")}')">
+      <div class="user-card-body"
+           data-patient-id="${escHtml(p.patientId)}"
+           data-patient-name="${escHtml(p.name)}"
+           onclick="_usersSelectAndGo(this.dataset.patientId, this.dataset.patientName)">
         <div class="user-card-name">${escHtml(p.name)}</div>
         ${p.dob ? `<div class="user-card-sub">DOB: ${escHtml(p.dob)}</div>` : ''}
         ${isCurrent ? '<span class="user-active-badge">Active</span>' : ''}
         ${!p.active ? '<span class="user-inactive-badge">Inactive</span>' : ''}
       </div>
-      <button class="ghost-btn user-edit-btn" onclick="event.stopPropagation(); _usersShowEditForm('${escHtml(p.patientId)}')">Edit</button>
+      <button class="ghost-btn user-edit-btn"
+              data-patient-id="${escHtml(p.patientId)}"
+              onclick="event.stopPropagation(); _usersShowEditForm(this.dataset.patientId)">Edit</button>
     </div>
   `;
 }

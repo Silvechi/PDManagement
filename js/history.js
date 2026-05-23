@@ -105,9 +105,10 @@ async function _fetchAndRenderHist() {
   if (content) content.innerHTML = '';
 
   try {
+    const patientId = getActivePatientId();
     const [result, dashResult] = await Promise.all([
-      API.getHistory({ from: _histFrom, to: _histTo }),
-      _histConfig ? Promise.resolve(null) : API.getDashboard()
+      API.getHistory({ patientId, from: _histFrom, to: _histTo }),
+      _histConfig ? Promise.resolve(null) : API.getDashboard(patientId)
     ]);
     if (dashResult && dashResult.inventoryConfig) {
       _histConfig = dashResult.inventoryConfig;

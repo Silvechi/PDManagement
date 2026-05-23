@@ -76,6 +76,7 @@ const NAV_ICONS = {
   inventory:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg>`,
   history:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`,
   prep:         `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M9 11l3 3 7-7M20 12v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1h9"/></svg>`,
+  users:        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87"/></svg>`,
 };
 
 const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>`;
@@ -87,6 +88,7 @@ const SCREENS = {
   inventory:    { label: 'Inventory', render: renderInventory    },
   history:      { label: 'History',   render: renderHistory      },
   prep:         { label: 'Prep',      render: renderPrep         },
+  users:        { label: 'Users',     render: renderUsers        },
 };
 
 let activeScreen = null;
@@ -101,10 +103,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyTheme(savedTheme);
   const authed = await initAuth();
   if (!authed) return;
+
+  await loadPatientsCache();
   buildNav();
-  navigateTo('dashboard');
+
+  if (getActivePatientId()) {
+    navigateTo('dashboard');
+  } else {
+    navigateTo('users'); // no patient selected — show picker / add form
+  }
+
   checkConnectivity();
-  // Warm the prep/config cache in the background while the user reads the dashboard
   API.getConfig().then(cfg => {
     try { localStorage.setItem('pd_config_v1', JSON.stringify(cfg)); } catch {}
   }).catch(() => {});
@@ -140,7 +149,7 @@ function buildNav() {
     return { key, label: cfg.label, icon };
   });
 
-  // Topbar: nav buttons + theme toggle on right
+  // Topbar: nav buttons + patient chip + theme toggle
   topbar.innerHTML = `
     <nav class="topnav" aria-label="Main navigation">
       ${navBtns.map(({ key, label, icon }) => `
@@ -151,6 +160,10 @@ function buildNav() {
       `).join('')}
     </nav>
     <div class="topbar-actions">
+      <button class="patient-chip" id="patient-chip" onclick="navigateTo('users')"
+              aria-label="Switch user" title="Active user">
+        ${getActivePatientName() || 'Select user'}
+      </button>
       <button class="theme-toggle-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode">
         ${MOON_ICON}
       </button>

@@ -26,7 +26,7 @@ async function renderDashboard(container) {
   `;
 
   try {
-    const fresh = await API.getDashboard();
+    const fresh = await API.getDashboard(getActivePatientId());
     dashboardData = fresh;
     renderDashboardContent(fresh);
   } catch (err) {

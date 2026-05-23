@@ -41,9 +41,10 @@ function doGet(e) {
     if (action === 'touchToken')    return jsonResponse(touchToken(e.parameter.token));
     // Protected actions — readonly tokens allowed on GET
     checkToken(e.parameter.token, true);
-    if (action === 'getDashboard') return jsonResponse(getDashboard());
-    if (action === 'getHistory')   return jsonResponse(getHistory(e.parameter.from, e.parameter.to));
+    if (action === 'getDashboard') return jsonResponse(getDashboard(e.parameter.patientId));
+    if (action === 'getHistory')   return jsonResponse(getHistory(e.parameter.patientId, e.parameter.from, e.parameter.to));
     if (action === 'getConfig')    return jsonResponse(getConfig());
+    if (action === 'getPatients')  return jsonResponse(getPatients());
     return jsonResponse({ error: 'Unknown GET action: ' + action });
   } catch (err) {
     return jsonResponse({ error: err.message });
@@ -65,6 +66,8 @@ function doPost(e) {
     checkToken(body.token);
     if (action === 'logMeasurement')  return jsonResponse(logMeasurement(body));
     if (action === 'updateInventory') return jsonResponse(updateInventory(body));
+    if (action === 'addPatient')      return jsonResponse(addPatient(body));
+    if (action === 'editPatient')     return jsonResponse(editPatient(body));
     return jsonResponse({ error: 'Unknown POST action: ' + action });
   } catch (err) {
     return jsonResponse({ error: err.message });
@@ -86,7 +89,9 @@ function logMeasurement(data) {
     parseFloat(data.bagWeight)   || '',
     data.notes                   || '',
     data.bagType                 || '',
-    data.measurementType         || ''
+    data.measurementType         || '',
+    data.patientId               || '',
+    parseFloat(data.fillVolume)  || ''
   ]);
   return { success: true, message: 'Measurement logged.' };
 }
@@ -96,7 +101,7 @@ function updateInventory(data) {
   var datetime = data.datetime || data.date || '';
   var items    = data.items || [];
   items.forEach(function(item) {
-    sheet.appendRow([datetime, item.name, parseInt(item.count) || 0]);
+    sheet.appendRow([datetime, item.name, parseInt(item.count) || 0, data.patientId || '']);
   });
   return { success: true, message: 'Inventory updated.' };
 }
@@ -105,56 +110,59 @@ function updateInventory(data) {
 // GET handlers
 // ============================================================
 
-function getDashboard() {
+function getDashboard(patientId) {
+  if (!patientId) return { error: 'patientId required' };
+
   // --- Inventory config from Config tab ---
   var inventoryConfig = readInventoryConfig();
 
-  // --- Latest count per item (tall Inventory format) ---
-  var invSheet   = ss().getSheetByName(TAB.INVENTORY);
-  var inventory  = {};
+  // --- Latest count per item filtered by patient ---
+  var invSheet    = ss().getSheetByName(TAB.INVENTORY);
+  var inventory   = {};
   var lowStockArr = [];
   inventoryConfig.forEach(function(item) { inventory[item.name] = 0; });
 
   if (invSheet && invSheet.getLastRow() > 1) {
-    var lastRow   = invSheet.getLastRow();
-    var readFrom  = Math.max(2, lastRow - 499); // read at most 500 rows from the tail
-    var invRows   = invSheet.getRange(readFrom, 1, lastRow - readFrom + 1, 3).getValues();
-    var found     = {};
-    // Walk backward; first value seen per item is the most recent
+    var lastRow  = invSheet.getLastRow();
+    var readFrom = Math.max(2, lastRow - 499);
+    var invRows  = invSheet.getRange(readFrom, 1, lastRow - readFrom + 1, 4).getValues();
+    var found    = {};
     for (var r = invRows.length - 1; r >= 0; r--) {
       var name = String(invRows[r][1]);
-      if (inventory.hasOwnProperty(name) && !found[name]) {
+      if (inventory.hasOwnProperty(name) && !found[name] && String(invRows[r][3]) === String(patientId)) {
         inventory[name] = parseInt(invRows[r][2]) || 0;
         found[name] = true;
       }
     }
   }
 
-  // Build low-stock flags
   inventoryConfig.forEach(function(item) {
     if ((inventory[item.name] || 0) < item.min) {
       lowStockArr.push(item.name + ' (' + (inventory[item.name] || 0) + ' left)');
     }
   });
 
-  // --- Weight trend (last 7 distinct days) + last 3 BP readings ---
+  // --- Weight trend + BP readings filtered by patient ---
   var measSheet = ss().getSheetByName(TAB.MEASUREMENTS);
   var weightTrend = [];
-  var bpRecent = [];
-  var bpAvgSys = null, bpAvgDia = null;
+  var bpRecent    = [];
+  var bpAvgSys    = null, bpAvgDia = null;
+  var lastExchange = null;
 
   if (measSheet && measSheet.getLastRow() > 1) {
-    var totalRows = measSheet.getLastRow() - 1;
-    var scanRows  = Math.min(50, totalRows);
-    var startRow  = measSheet.getLastRow() - scanRows + 1;
-    var mData     = measSheet.getRange(startRow, 1, scanRows, 9).getValues();
-    var tz = Session.getScriptTimeZone();
+    var totalRows    = measSheet.getLastRow() - 1;
+    var patientCount = Math.max(1, (ss().getSheetByName(TAB.PATIENTS) || { getLastRow: function() { return 1; } }).getLastRow() - 1);
+    var scanRows     = Math.min(Math.max(50, patientCount * 50), 500);
+    scanRows = Math.min(scanRows, totalRows);
+    var startRow = measSheet.getLastRow() - scanRows + 1;
+    var mData    = measSheet.getRange(startRow, 1, scanRows, 11).getValues();
+    var tz       = Session.getScriptTimeZone();
 
-    // Walk backward: collect last 7 distinct-day weight entries and last 3 BP readings
     var weightByDay = {};
-    var lastExchange = null;
     for (var i = mData.length - 1; i >= 0; i--) {
       var row = mData[i];
+      if (String(row[9]) !== String(patientId)) continue;
+
       var dateVal = row[0];
       var dateStr = dateVal instanceof Date
         ? Utilities.formatDate(dateVal, tz, 'yyyy-MM-dd')
@@ -179,12 +187,10 @@ function getDashboard() {
       if (Object.keys(weightByDay).length >= 7 && bpRecent.length >= 3 && lastExchange) break;
     }
 
-    // Sort weight entries ascending by date, keep last 7 days
     var weightDates = Object.keys(weightByDay).sort();
     if (weightDates.length > 7) weightDates = weightDates.slice(-7);
     weightTrend = weightDates.map(function(d) { return { date: d, weight: weightByDay[d] }; });
 
-    // bpRecent is newest-first from the scan; reverse to oldest-first for display
     bpRecent.reverse();
 
     if (bpRecent.length > 0) {
@@ -207,21 +213,23 @@ function getDashboard() {
   };
 }
 
-function getHistory(from, to) {
+function getHistory(patientId, from, to) {
+  if (!patientId) return { rows: [] };
   var sheet = getSheet(TAB.MEASUREMENTS);
-  if (sheet.getLastRow() <= 1) return { rows: [] };
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { rows: [] };
 
-  var tz = Session.getScriptTimeZone();
-
+  var tz       = Session.getScriptTimeZone();
   var fromDate = from ? new Date(from + 'T00:00:00') : new Date();
   if (!from) fromDate.setDate(fromDate.getDate() - 7);
   fromDate.setHours(0, 0, 0, 0);
-
   var toDate = to ? new Date(to + 'T23:59:59') : new Date();
   toDate.setHours(23, 59, 59, 999);
 
-  var totalRows = sheet.getLastRow() - 1;
-  var data      = sheet.getRange(2, 1, totalRows, 9).getValues();
+  var patientCount = Math.max(1, (ss().getSheetByName(TAB.PATIENTS) || { getLastRow: function() { return 1; } }).getLastRow() - 1);
+  var tailRows = Math.max(1000, patientCount * 1000);
+  var readFrom = Math.max(2, lastRow - tailRows + 1);
+  var data     = sheet.getRange(readFrom, 1, lastRow - readFrom + 1, 11).getValues();
 
   var rows = [];
   for (var i = data.length - 1; i >= 0; i--) {
@@ -229,8 +237,9 @@ function getHistory(from, to) {
     var dateVal = row[0];
     var rowDate = dateVal instanceof Date ? dateVal : new Date(String(dateVal));
     if (isNaN(rowDate)) continue;
-    if (rowDate < fromDate) break; // rows are chronological; stop once past window
+    if (rowDate < fromDate) break; // chronological — all earlier rows also out of range
     if (rowDate > toDate) continue;
+    if (String(row[9]) !== String(patientId)) continue;
 
     var timeVal = row[1];
     var timeStr = timeVal instanceof Date
@@ -246,11 +255,11 @@ function getHistory(from, to) {
       bagWeight:       row[5],
       notes:           row[6],
       bagType:         (function(v) {
-        // Sheets converts '2.27%' → 0.0227 on read; restore percentage
         if (typeof v === 'number') return (Math.round(v * 10000) / 100) + '%';
         return v ? String(v) : '';
       })(row[7]),
-      measurementType: row[8]
+      measurementType: row[8],
+      fillVolume:      row[10] !== '' ? row[10] : ''
     });
   }
   return { rows: rows };
@@ -476,7 +485,7 @@ function readInventoryConfig() {
   var configSheet = ss().getSheetByName(TAB.CONFIG);
   var result = [];
   if (configSheet && configSheet.getLastRow() > 1) {
-    var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 8).getValues();
+    var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 10).getValues();
     rows.forEach(function(row) {
       if (String(row[0]) === 'inventory') {
         var active = row[5] === '' || row[5] === true || String(row[5]).toUpperCase() === 'TRUE';
@@ -488,15 +497,88 @@ function readInventoryConfig() {
           isBag:       row[4] === true || String(row[4]).toUpperCase() === 'TRUE',
           color:       row[6] ? String(row[6]) : '',
           displayName: (function(v) {
-            // Sheets converts '1.36%' → 0.0136; restore percentage
             if (typeof v === 'number') return (Math.round(v * 10000) / 100) + '%';
             return v ? String(v) : '';
-          })(row[7])
+          })(row[7]),
+          maxHours:    row[8] !== '' && row[8] !== null ? parseFloat(row[8]) : null,
+          reorderDays: row[9] !== '' && row[9] !== null ? parseInt(row[9]) : null
         });
       }
     });
   }
   return result;
+}
+
+// ============================================================
+// Patient management
+// ============================================================
+
+function getPatients() {
+  var sheet = ss().getSheetByName(TAB.PATIENTS);
+  if (!sheet || sheet.getLastRow() <= 1) return { version: null, patients: [] };
+  var rows     = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues();
+  var tz       = Session.getScriptTimeZone();
+  var latestUpdated = null;
+  var patients = rows.map(function(row) {
+    var lu = row[5] instanceof Date
+      ? Utilities.formatDate(row[5], tz, 'yyyy-MM-dd HH:mm')
+      : String(row[5] || '');
+    if (lu && (!latestUpdated || lu > latestUpdated)) latestUpdated = lu;
+    var dob = row[2] instanceof Date
+      ? Utilities.formatDate(row[2], tz, 'yyyy-MM-dd')
+      : String(row[2] || '');
+    return {
+      patientId:   String(row[0]),
+      name:        String(row[1]),
+      dob:         dob,
+      comment:     String(row[3] || ''),
+      active:      row[4] === true || String(row[4]).toUpperCase() === 'TRUE',
+      lastUpdated: lu
+    };
+  });
+  return { version: latestUpdated, patients: patients };
+}
+
+function addPatient(data) {
+  if (!data.name) throw new Error('Name is required');
+  var sheet = ss().getSheetByName(TAB.PATIENTS);
+  if (!sheet) throw new Error('Patients sheet not found. Run setupSheet() first.');
+  var tz        = Session.getScriptTimeZone();
+  var now       = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  var patientId = Utilities.getUuid();
+  sheet.appendRow([patientId, data.name, data.dob || '', data.comment || '', 'TRUE', now]);
+  return { success: true, patientId: patientId };
+}
+
+function editPatient(data) {
+  if (!data.patientId) throw new Error('patientId required');
+  var sheet = ss().getSheetByName(TAB.PATIENTS);
+  if (!sheet || sheet.getLastRow() <= 1) throw new Error('Patient not found');
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(data.patientId)) {
+      var tz  = Session.getScriptTimeZone();
+      var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+      var r   = i + 2;
+      if (data.name    !== undefined) sheet.getRange(r, 2).setValue(data.name);
+      if (data.dob     !== undefined) sheet.getRange(r, 3).setValue(data.dob);
+      if (data.comment !== undefined) sheet.getRange(r, 4).setValue(data.comment);
+      if (data.active  !== undefined) sheet.getRange(r, 5).setValue(data.active ? 'TRUE' : 'FALSE');
+      sheet.getRange(r, 6).setValue(now);
+      return { success: true };
+    }
+  }
+  throw new Error('Patient not found: ' + data.patientId);
+}
+
+function _getPatientName(patientId) {
+  var sheet = ss().getSheetByName(TAB.PATIENTS);
+  if (!sheet || sheet.getLastRow() <= 1) return '';
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(patientId)) return String(rows[i][1]);
+  }
+  return '';
 }
 
 // allowReadonly: true on GET endpoints; false (default) on write endpoints.

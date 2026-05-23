@@ -348,7 +348,8 @@ async function submitBag() {
     const bagType   = hasFill  ? (_bagItem ? bagDisplayName(_bagItem) : '') : '';
     await API.logMeasurement({
       date, time, bagWeight, bagType, notes,
-      measurementType: procType === 'both' ? 'drain_fill' : procType
+      measurementType: procType === 'both' ? 'drain_fill' : procType,
+      patientId: getActivePatientId()
     });
 
     if (hasFill && _bagItem) {
@@ -361,7 +362,7 @@ async function submitBag() {
         if (usageBags > 0) deductItems.push({ name: bagKey,  count: Math.max(0, (inv[bagKey]    ?? 0) - usageBags) });
         if (usageCaps > 0) deductItems.push({ name: 'Caps',  count: Math.max(0, (inv['Caps']    ?? 0) - usageCaps) });
         if (deductItems.length) {
-          await API.updateInventory({ datetime: date + ' ' + time, items: deductItems });
+          await API.updateInventory({ datetime: date + ' ' + time, items: deductItems, patientId: getActivePatientId() });
           deductItems.forEach(i => { inv[i.name] = i.count; });
         }
       }
@@ -455,7 +456,7 @@ async function submitWeight() {
   setFeedback('wt', '', '');
 
   try {
-    await API.logMeasurement({ date, time, weight, measurementType: 'weight' });
+    await API.logMeasurement({ date, time, weight, measurementType: 'weight', patientId: getActivePatientId() });
     setFeedback('wt', `Weight saved · ${weight.toFixed(1)} kg`, 'success');
     _nowPillDate = new Date();
     buildNowPill('now-pill-container');
@@ -563,7 +564,7 @@ async function submitBP() {
   setFeedback('bp', '', '');
 
   try {
-    await API.logMeasurement({ date, time, bpSystolic: sys, bpDiastolic: dia, measurementType: 'bp' });
+    await API.logMeasurement({ date, time, bpSystolic: sys, bpDiastolic: dia, measurementType: 'bp', patientId: getActivePatientId() });
     setFeedback('bp', `BP saved · ${sys}/${dia} mmHg`, 'success');
     _nowPillDate = new Date();
     buildNowPill('now-pill-container');

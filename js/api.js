@@ -75,15 +75,20 @@ async function apiPost(action, body = {}) {
 // ============================================================
 
 const API = {
-  getDashboard: () => apiGet('getDashboard'),
+  getDashboard: (patientId) => apiGet('getDashboard', { patientId }),
 
-  getHistory: ({ from, to } = {}) => apiGet('getHistory', { from, to }),
+  getHistory: ({ patientId, from, to } = {}) => apiGet('getHistory', { patientId, from, to }),
 
   getConfig: () => apiGet('getConfig'),
 
   logMeasurement: (data) => apiPost('logMeasurement', data),
 
   updateInventory: (data) => apiPost('updateInventory', data),
+
+  // Patient management
+  getPatients:  ()     => apiGet('getPatients'),
+  addPatient:   (data) => apiPost('addPatient',  data),
+  editPatient:  (data) => apiPost('editPatient', data),
 
   // Auth — these are public (no approved token required)
   validateToken:   (token) => apiGet('validateToken', { token }),

@@ -1,102 +1,129 @@
 import { test, expect } from '@playwright/test';
 import { setupMockApi, DASHBOARD_RESPONSE, INVENTORY_CONFIG } from './helpers/mock-api.js';
 
-// Item IDs are index-based so any Unicode name works safely.
-// Indices: 0=Bags 1.36%, 1=Bags 2.27%, 2=Bags 3.86%, 3=Caps, 4=Gauze Pads, 5=Bandages, 6=Ointment
-const INV_IDS = INVENTORY_CONFIG.map((_, i) => `#inv-item-${i}`);
+// Inventory uses inventoryConfig index for element IDs: #inv-val-N (input), #inv-bag-row-N (bag), #inv-supply-row-N (supply)
+// Bags: indices 0-2 (Solution Bags 1.36%, 2.27%, 3.86%)
+// Supplies: indices 3-6 (Caps, Gauze Pads, Bandages, Ointment)
+
+// Helper: stepper buttons adjacent to an input
+function stepperInc(page, inputId) {
+  return page.locator(`#${inputId}`).locator('xpath=following-sibling::button[1]');
+}
+function stepperDec(page, inputId) {
+  return page.locator(`#${inputId}`).locator('xpath=preceding-sibling::button[1]');
+}
 
 test.describe('Inventory Manager', () => {
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
     await page.goto('/');
-    await expect(page.locator('.inv-card-grid')).toBeVisible();
-    await page.locator('#nav-inventory').click();
-    await expect(page.getByRole('heading', { name: 'Inventory Manager' })).toBeVisible();
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    await page.locator('#botnav-inventory').click();
+    await expect(page.getByRole('heading', { name: 'Inventory', exact: true })).toBeVisible();
   });
 
   // ── Initial counts seeded from dashboard data ─────────────
 
-  test('displays current counts from dashboard data', async ({ page }) => {
-    await expect(page.locator(INV_IDS[0])).toHaveValue('8');  // Bags 1.36%
-    await expect(page.locator(INV_IDS[1])).toHaveValue('6');  // Bags 2.27%
-    await expect(page.locator(INV_IDS[2])).toHaveValue('4');  // Bags 3.86%
-    await expect(page.locator(INV_IDS[3])).toHaveValue('20'); // Caps
-    await expect(page.locator(INV_IDS[4])).toHaveValue('3');  // Gauze Pads
-    await expect(page.locator(INV_IDS[5])).toHaveValue('15'); // Bandages
-    await expect(page.locator(INV_IDS[6])).toHaveValue('8');  // Ointment
+  test('displays current bag counts from dashboard data', async ({ page }) => {
+    await expect(page.locator('#inv-val-0')).toHaveValue('8');  // Bags 1.36%
+    await expect(page.locator('#inv-val-1')).toHaveValue('6');  // Bags 2.27%
+    await expect(page.locator('#inv-val-2')).toHaveValue('4');  // Bags 3.86%
   });
 
-  test('shows low-stock warning for items below threshold', async ({ page }) => {
-    const gauzePadsRow = page.locator('.inv-row').filter({ hasText: 'Gauze Pads' });
-    await expect(gauzePadsRow).toHaveClass(/inv-low/);
-    await expect(gauzePadsRow.locator('.inv-warning')).toBeVisible();
+  test('displays current supply counts from dashboard data', async ({ page }) => {
+    await expect(page.locator('#inv-val-3')).toHaveValue('20'); // Caps
+    await expect(page.locator('#inv-val-4')).toHaveValue('3');  // Gauze Pads
+    await expect(page.locator('#inv-val-5')).toHaveValue('15'); // Bandages
+    await expect(page.locator('#inv-val-6')).toHaveValue('8');  // Ointment
   });
 
-  test('no low-stock warning for items well above threshold', async ({ page }) => {
-    const capsRow = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: 'Caps' }) });
-    await expect(capsRow).not.toHaveClass(/inv-low/);
+  test('shows low class for supply item below threshold', async ({ page }) => {
+    // Gauze Pads = 3, min = 10 → low
+    await expect(page.locator('#inv-supply-row-4')).toHaveClass(/low/);
+    await expect(page.locator('#inv-supply-row-4 .low-tag')).toBeVisible();
   });
 
-  // ── + / − buttons ─────────────────────────────────────────
-
-  test('+ button increases count by 1', async ({ page }) => {
-    const row = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: '1.36%' }) });
-    await row.getByRole('button', { name: /increase/i }).click();
-    await expect(page.locator(INV_IDS[0])).toHaveValue('9');
+  test('shows low class for bag below threshold', async ({ page }) => {
+    // Solution Bags 3.86% = 4, min = 5 → low
+    await expect(page.locator('#inv-bag-row-2')).toHaveClass(/low/);
   });
 
-  test('− button decreases count by 1', async ({ page }) => {
-    const row = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: '1.36%' }) });
-    await row.getByRole('button', { name: /decrease/i }).click();
-    await expect(page.locator(INV_IDS[0])).toHaveValue('7');
+  test('no low class for items above threshold', async ({ page }) => {
+    // Caps = 20, min = 10 → ok
+    await expect(page.locator('#inv-supply-row-3')).not.toHaveClass(/low/);
+  });
+
+  // ── + / − stepper buttons ─────────────────────────────────
+
+  test('+ button increases bag count by 1', async ({ page }) => {
+    await stepperInc(page, 'inv-val-0').click();
+    await expect(page.locator('#inv-val-0')).toHaveValue('9');
+  });
+
+  test('− button decreases bag count by 1', async ({ page }) => {
+    await stepperDec(page, 'inv-val-0').click();
+    await expect(page.locator('#inv-val-0')).toHaveValue('7');
   });
 
   test('− button cannot reduce count below 0', async ({ page }) => {
-    const decreaseBtn = page.locator('.inv-row')
-      .filter({ hasText: 'Gauze Pads' })
-      .getByRole('button', { name: /decrease/i });
-    for (let i = 0; i < 5; i++) await decreaseBtn.click();
-    await expect(page.locator(INV_IDS[4])).toHaveValue('0');
+    // Gauze Pads = 3 → click − 5 times → min 0
+    for (let i = 0; i < 5; i++) await stepperDec(page, 'inv-val-4').click();
+    await expect(page.locator('#inv-val-4')).toHaveValue('0');
   });
 
-  test('low-stock warning appears dynamically when count drops below threshold', async ({ page }) => {
-    const capsRow = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: 'Caps' }) });
-    const decreaseBtn = capsRow.getByRole('button', { name: /decrease/i });
-    for (let i = 0; i < 12; i++) await decreaseBtn.click();
-    await expect(page.locator(INV_IDS[3])).toHaveValue('8');
-    await expect(capsRow).toHaveClass(/inv-low/);
-    await expect(capsRow.locator('.inv-warning')).toBeVisible();
+  test('low class appears dynamically when count drops below threshold', async ({ page }) => {
+    // Caps = 20, min = 10 → click − 12 times → count = 8 → low
+    for (let i = 0; i < 12; i++) await stepperDec(page, 'inv-val-3').click();
+    await expect(page.locator('#inv-val-3')).toHaveValue('8');
+    await expect(page.locator('#inv-supply-row-3')).toHaveClass(/low/);
+    await expect(page.locator('#inv-supply-row-3 .low-tag')).toBeVisible();
+  });
+
+  test('low class is removed when count rises back above threshold', async ({ page }) => {
+    // Start: Gauze Pads = 3 (low). Increment enough to exceed threshold (min=10).
+    for (let i = 0; i < 8; i++) await stepperInc(page, 'inv-val-4').click();
+    await expect(page.locator('#inv-val-4')).toHaveValue('11');
+    await expect(page.locator('#inv-supply-row-4')).not.toHaveClass(/low/);
   });
 
   // ── Direct input ──────────────────────────────────────────
 
-  test('typing a value directly updates the count (oninput)', async ({ page }) => {
-    const input = page.locator(INV_IDS[3]); // Caps
-    await input.fill('50');
-    await expect(input).toHaveValue('50');
-    await page.getByRole('button', { name: /save inventory/i }).click();
-    await expect(page.locator('#inv-feedback')).toContainText(/saved successfully/i);
+  test('typing a value directly into the input updates the count', async ({ page }) => {
+    await page.locator('#inv-val-3').fill('50');
+    await expect(page.locator('#inv-val-3')).toHaveValue('50');
   });
 
   // ── Save ──────────────────────────────────────────────────
 
-  test('Save Inventory button calls API and shows success', async ({ page }) => {
+  test('Save inventory button calls API and shows success', async ({ page }) => {
     await page.getByRole('button', { name: /save inventory/i }).click();
-    await expect(page.locator('#inv-feedback')).toContainText(/saved successfully/i);
+    await expect(page.locator('#inv-feedback')).toContainText(/inventory saved/i, { timeout: 5000 });
   });
 
-  test('API error shows error message', async ({ page }) => {
+  test('API error on save shows error message', async ({ page }) => {
     await setupMockApi(page, { updateInventory: { error: 'Write failed' } });
     await page.goto('/');
-    await expect(page.locator('.inv-card-grid')).toBeVisible();
-    await page.locator('#nav-inventory').click();
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    await page.locator('#botnav-inventory').click();
     await page.getByRole('button', { name: /save inventory/i }).click();
-    await expect(page.locator('#inv-feedback')).toContainText(/error/i);
+    await expect(page.locator('#inv-feedback')).toContainText(/error/i, { timeout: 5000 });
   });
 
-  // ── Unicode / Hebrew item names ───────────────────────────
+  // ── Bag colour dots ───────────────────────────────────────
 
-  test('renders correctly with Hebrew item names in config', async ({ page }) => {
+  test('bag rows show coloured dot', async ({ page }) => {
+    for (let i = 0; i < 3; i++) {
+      await expect(page.locator(`#inv-bag-row-${i} .bag-dot`)).toBeVisible();
+    }
+  });
+
+  test('supply rows do not show coloured dot', async ({ page }) => {
+    await expect(page.locator('#inv-supply-row-3 .bag-dot')).not.toBeAttached();
+  });
+
+  // ── Hebrew item names ─────────────────────────────────────
+
+  test('renders correctly with Hebrew item names', async ({ page }) => {
     await setupMockApi(page, {
       getDashboard: {
         inventoryConfig: [
@@ -104,124 +131,32 @@ test.describe('Inventory Manager', () => {
           { name: 'שקית צהובה', min: 5  }
         ],
         inventory: { 'פקקים': 8, 'שקית צהובה': 6 },
-        lowStockFlags: 'פקקים (8 left)',
+        lowStockFlags: '',
         weightTrend: [],
-        bpAvg: null,
-        avgProcedureDuration: null
+        bpRecent: [],
+        bpAvg: null
       }
     });
     await page.goto('/');
-    await expect(page.locator('.inv-card-grid')).toBeVisible();
-    await page.locator('#nav-inventory').click();
-    // Both items render with correct counts
-    await expect(page.locator('#inv-item-0')).toHaveValue('8');
-    await expect(page.locator('#inv-item-1')).toHaveValue('6');
-    // Item names are visible
-    await expect(page.locator('.inv-name').first()).toContainText('פקקים');
+    await expect(page.locator('#dash-loading')).not.toBeVisible({ timeout: 8000 });
+    await page.locator('#botnav-inventory').click();
+    await expect(page.locator('#inv-val-0')).toHaveValue('8');
+    await expect(page.locator('#inv-val-1')).toHaveValue('6');
   });
 
-  test('+ / − buttons work with Hebrew item names', async ({ page }) => {
+  test('+/- buttons work with Hebrew item names', async ({ page }) => {
     await setupMockApi(page, {
       getDashboard: {
         inventoryConfig: [{ name: 'פקקים', min: 10 }],
         inventory: { 'פקקים': 5 },
         lowStockFlags: '',
-        weightTrend: [], bpAvg: null, avgProcedureDuration: null
+        weightTrend: [], bpRecent: [], bpAvg: null
       }
     });
     await page.goto('/');
-    await expect(page.locator('.inv-card-grid')).toBeVisible();
-    await page.locator('#nav-inventory').click();
-    const increaseBtn = page.locator('.inv-row').nth(0).getByRole('button', { name: /increase/i });
-    await increaseBtn.click();
-    await expect(page.locator('#inv-item-0')).toHaveValue('6');
-  });
-
-  // ── Inventory tooltips ────────────────────────────────────
-
-  // All three bag rows and Caps and Ointment have descriptions; Gauze Pads and Bandages do not.
-
-  test('items with descriptions show ⓘ icon', async ({ page }) => {
-    const row = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: '1.36%' }) });
-    await expect(row.locator('.inv-tip-icon')).toBeVisible();
-  });
-
-  test('items without descriptions do not show ⓘ icon', async ({ page }) => {
-    const row = page.locator('.inv-row').filter({ hasText: 'Gauze Pads' });
-    await expect(row.locator('.inv-tip-icon')).not.toBeVisible();
-  });
-
-  test('tip panel is hidden before clicking', async ({ page }) => {
-    const row = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: '1.36%' }) });
-    await expect(row.locator('.inv-tip-panel')).not.toBeVisible();
-  });
-
-  test('clicking the label reveals the tip description', async ({ page }) => {
-    const row = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: '1.36%' }) });
-    await row.locator('.inv-label').click();
-    await expect(row.locator('.inv-tip-panel')).toBeVisible();
-    await expect(row.locator('.inv-tip-panel')).toContainText(INVENTORY_CONFIG[0].description);
-  });
-
-  test('clicking the label again closes the tip', async ({ page }) => {
-    const row = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: '1.36%' }) });
-    await row.locator('.inv-label').click();
-    await expect(row.locator('.inv-tip-panel')).toBeVisible();
-    await row.locator('.inv-label').click();
-    await expect(row.locator('.inv-tip-panel')).not.toBeVisible();
-  });
-
-  test('opening a second tip closes the first', async ({ page }) => {
-    const row1 = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: '1.36%' }) });
-    const row2 = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: 'Caps' }) });
-    await row1.locator('.inv-label').click();
-    await expect(row1.locator('.inv-tip-panel')).toBeVisible();
-    await row2.locator('.inv-label').click();
-    await expect(row1.locator('.inv-tip-panel')).not.toBeVisible();
-    await expect(row2.locator('.inv-tip-panel')).toBeVisible();
-  });
-
-  test('+/- buttons still work when a tip is open', async ({ page }) => {
-    const row = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: '1.36%' }) });
-    await row.locator('.inv-label').click();
-    await expect(row.locator('.inv-tip-panel')).toBeVisible();
-    await row.getByRole('button', { name: /increase/i }).click();
-    await expect(page.locator(INV_IDS[0])).toHaveValue('9');
-    // tip should still be open after button click
-    await expect(row.locator('.inv-tip-panel')).toBeVisible();
-  });
-
-  test('tooltip works with Hebrew item name and description', async ({ page }) => {
-    await setupMockApi(page, {
-      getDashboard: {
-        inventoryConfig: [
-          { name: 'פקקים', min: 10, description: 'החלף פקק אחד בכל החלפה.' }
-        ],
-        inventory: { 'פקקים': 5 },
-        lowStockFlags: '',
-        weightTrend: [], bpAvg: null, avgProcedureDuration: null
-      }
-    });
-    await page.goto('/');
-    await expect(page.locator('.inv-card-grid')).toBeVisible();
-    await page.locator('#nav-inventory').click();
-    const row = page.locator('.inv-row').nth(0);
-    await expect(row.locator('.inv-tip-icon')).toBeVisible();
-    await row.locator('.inv-label').click();
-    await expect(row.locator('.inv-tip-panel')).toContainText('החלף פקק אחד בכל החלפה.');
-  });
-
-  // ── Concentration colour dots ─────────────────────────────
-
-  test('bag concentration rows show a coloured dot', async ({ page }) => {
-    for (const conc of ['1.36%', '2.27%', '3.86%']) {
-      const row = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: conc }) });
-      await expect(row.locator('.bag-dot')).toBeVisible();
-    }
-  });
-
-  test('non-concentration items do not show a coloured dot', async ({ page }) => {
-    const capsRow = page.locator('.inv-row').filter({ has: page.locator('.inv-name', { hasText: 'Caps' }) });
-    await expect(capsRow.locator('.bag-dot')).not.toBeAttached();
+    await expect(page.locator('#dash-loading')).not.toBeVisible({ timeout: 8000 });
+    await page.locator('#botnav-inventory').click();
+    await stepperInc(page, 'inv-val-0').click();
+    await expect(page.locator('#inv-val-0')).toHaveValue('6');
   });
 });

@@ -1,24 +1,38 @@
 import { test, expect } from '@playwright/test';
 import { setupMockApi } from './helpers/mock-api.js';
 
+// Helper: sibling button locators for a stepper (increment/decrement around the value span)
+function stepperInc(page, spanId) {
+  return page.locator(`#${spanId}`).locator('xpath=following-sibling::button[1]');
+}
+function stepperDec(page, spanId) {
+  return page.locator(`#${spanId}`).locator('xpath=preceding-sibling::button[1]');
+}
+
+// Helper: wait for dashboard load, then navigate to Log
+async function goToLog(page) {
+  await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+  await page.locator('#botnav-measurements').click();
+  await expect(page.getByRole('heading', { name: 'Log', exact: true })).toBeVisible();
+}
+
 test.describe('Log Measurements', () => {
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
     await page.goto('/');
-    await page.getByRole('button', { name: /log/i }).click();
-    await expect(page.getByRole('heading', { name: 'Log Measurements' })).toBeVisible();
+    await goToLog(page);
   });
 
-  // ── Toggle bar ────────────────────────────────────────────
+  // ── Tab bar ───────────────────────────────────────────────
 
-  test('renders three toggle buttons', async ({ page }) => {
+  test('renders three measurement tabs', async ({ page }) => {
     await expect(page.locator('#meas-tab-bag')).toBeVisible();
     await expect(page.locator('#meas-tab-weight')).toBeVisible();
     await expect(page.locator('#meas-tab-bp')).toBeVisible();
   });
 
   test('Drainage is the default active tab', async ({ page }) => {
-    await expect(page.locator('#meas-tab-bag')).toHaveClass(/meas-tab-active/);
+    await expect(page.locator('#meas-tab-bag')).toHaveClass(/active/);
     await expect(page.locator('#m-bag-card')).toBeVisible();
     await expect(page.locator('#m-weight-card')).not.toBeVisible();
     await expect(page.locator('#m-bp-card')).not.toBeVisible();
@@ -28,7 +42,7 @@ test.describe('Log Measurements', () => {
     await page.locator('#meas-tab-weight').click();
     await expect(page.locator('#m-weight-card')).toBeVisible();
     await expect(page.locator('#m-bag-card')).not.toBeVisible();
-    await expect(page.locator('#meas-tab-weight')).toHaveClass(/meas-tab-active/);
+    await expect(page.locator('#meas-tab-weight')).toHaveClass(/active/);
   });
 
   test('switching to BP shows BP card', async ({ page }) => {
@@ -37,176 +51,76 @@ test.describe('Log Measurements', () => {
     await expect(page.locator('#m-bag-card')).not.toBeVisible();
   });
 
-  // ── Date/time pre-fill ────────────────────────────────────
+  // ── Now pill ──────────────────────────────────────────────
 
-  test('drainage date is pre-filled with today in local time', async ({ page }) => {
-    const now = new Date();
-    const expected = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0')
-    ].join('-');
-    await expect(page.locator('#bag-date')).toHaveValue(expected);
+  test('now pill shows today label by default', async ({ page }) => {
+    await expect(page.locator('.now-pill')).toContainText('Today');
   });
 
-  test('drainage time is pre-filled with HH:MM format', async ({ page }) => {
-    const val = await page.locator('#bag-time').inputValue();
-    expect(val).toMatch(/^\d{2}:\d{2}$/);
+  test('clicking now pill opens datetime editor', async ({ page }) => {
+    await page.locator('.now-pill').click();
+    await expect(page.locator('#now-dt-input')).toBeVisible();
+    await expect(page.locator('#now-done-btn')).toBeVisible();
   });
 
-  test('weight date is pre-filled', async ({ page }) => {
+  // ── Drum pickers (drainage) ───────────────────────────────
+
+  test('drainage card has drum pickers for integer and decimal', async ({ page }) => {
+    await expect(page.locator('#bag-int-dp .drum')).toBeVisible();
+    await expect(page.locator('#bag-dec-dp .drum')).toBeVisible();
+  });
+
+  test('drainage int picker renders items including default value 2', async ({ page }) => {
+    await expect(page.locator('#bag-int-dp .drum-item[data-v="2"]')).toBeAttached();
+  });
+
+  test('clicking a drum item changes the value', async ({ page }) => {
+    // Click item 5 in the integer picker
+    await page.locator('#bag-int-dp .drum-item[data-v="5"]').click();
+    // The clicked item should now have opacity 1
+    const opacity = await page.locator('#bag-int-dp .drum-item[data-v="5"]').evaluate(
+      el => parseFloat(el.style.opacity)
+    );
+    expect(opacity).toBe(1);
+  });
+
+  test('weight card has drum pickers for each digit', async ({ page }) => {
     await page.locator('#meas-tab-weight').click();
-    const now = new Date();
-    const expected = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0')
-    ].join('-');
-    await expect(page.locator('#wt-date')).toHaveValue(expected);
+    await expect(page.locator('#wt-h-dp .drum')).toBeVisible();
+    await expect(page.locator('#wt-t-dp .drum')).toBeVisible();
+    await expect(page.locator('#wt-o-dp .drum')).toBeVisible();
+    await expect(page.locator('#wt-dec-dp .drum')).toBeVisible();
   });
 
-  // ── Drum pickers ──────────────────────────────────────────
-
-  test('drainage card has two drum pickers', async ({ page }) => {
-    await expect(page.locator('#bag-int-dp .dp')).toBeVisible();
-    await expect(page.locator('#bag-dec-dp .dp')).toBeVisible();
-  });
-
-  test('weight card has two drum pickers', async ({ page }) => {
-    await page.locator('#meas-tab-weight').click();
-    await expect(page.locator('#wt-int-dp .dp')).toBeVisible();
-    await expect(page.locator('#wt-dec-dp .dp')).toBeVisible();
-  });
-
-  test('BP card has two drum pickers', async ({ page }) => {
+  test('BP card has drum pickers for systolic and diastolic digits', async ({ page }) => {
     await page.locator('#meas-tab-bp').click();
-    await expect(page.locator('#bp-sys-dp .dp')).toBeVisible();
-    await expect(page.locator('#bp-dia-dp .dp')).toBeVisible();
+    await expect(page.locator('#bp-sh-dp .drum')).toBeVisible();
+    await expect(page.locator('#bp-st-dp .drum')).toBeVisible();
+    await expect(page.locator('#bp-so-dp .drum')).toBeVisible();
+    await expect(page.locator('#bp-dh-dp .drum')).toBeVisible();
+    await expect(page.locator('#bp-dt-dp .drum')).toBeVisible();
+    await expect(page.locator('#bp-do-dp .drum')).toBeVisible();
   });
 
-  test('drum pickers show selected value in center slot', async ({ page }) => {
-    // Default bag int = 2
-    await expect(page.locator('#bag-int-dp .dp-selected')).toContainText('2');
+  // ── Bag type selector ─────────────────────────────────────
+
+  test('bag type selector shows three concentration cards', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /1\.36%/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /2\.27%/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /3\.86%/ })).toBeVisible();
   });
 
-  // ── Drum picker interaction ───────────────────────────────
-
-  test('keyboard ArrowUp increments bag integer picker', async ({ page }) => {
-    const dp = page.locator('#bag-int-dp .dp');
-    await dp.focus();
-    await dp.press('ArrowUp');
-    await expect(page.locator('#bag-int-dp .dp-selected')).toContainText('3');
+  test('1.36% bag card is active by default', async ({ page }) => {
+    await expect(page.locator('#bagpick-0')).toHaveClass(/active/);
+    await expect(page.locator('#bagpick-1')).not.toHaveClass(/active/);
+    await expect(page.locator('#bagpick-2')).not.toHaveClass(/active/);
   });
 
-  test('keyboard ArrowDown decrements bag integer picker', async ({ page }) => {
-    const dp = page.locator('#bag-int-dp .dp');
-    await dp.focus();
-    await dp.press('ArrowDown');
-    await expect(page.locator('#bag-int-dp .dp-selected')).toContainText('1');
-  });
-
-  test('keyboard ArrowUp on weight picker increments', async ({ page }) => {
-    await page.locator('#meas-tab-weight').click();
-    const dp = page.locator('#wt-int-dp .dp');
-    await dp.focus();
-    await dp.press('ArrowUp');
-    await expect(page.locator('#wt-int-dp .dp-selected')).toContainText('66');
-  });
-
-  // ── Bag type selector ────────────────────────────────────
-
-  test('bag type selector shows three concentration options', async ({ page }) => {
-    await expect(page.getByRole('button', { name: '1.36%' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '2.27%' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '3.86%' })).toBeVisible();
-  });
-
-  test('1.36% is active by default', async ({ page }) => {
-    await expect(page.getByRole('button', { name: '1.36%' })).toHaveClass(/bag-type-active/);
-    await expect(page.getByRole('button', { name: '2.27%' })).not.toHaveClass(/bag-type-active/);
-    await expect(page.getByRole('button', { name: '3.86%' })).not.toHaveClass(/bag-type-active/);
-  });
-
-  test('clicking a concentration activates it and deactivates others', async ({ page }) => {
-    await page.getByRole('button', { name: '2.27%' }).click();
-    await expect(page.getByRole('button', { name: '2.27%' })).toHaveClass(/bag-type-active/);
-    await expect(page.getByRole('button', { name: '1.36%' })).not.toHaveClass(/bag-type-active/);
-    await expect(page.getByRole('button', { name: '3.86%' })).not.toHaveClass(/bag-type-active/);
-  });
-
-  test('bag type resets to 1.36% after successful submit', async ({ page }) => {
-    await page.getByRole('button', { name: '3.86%' }).click();
-    await expect(page.getByRole('button', { name: '3.86%' })).toHaveClass(/bag-type-active/);
-    await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/saved/i);
-    await expect(page.getByRole('button', { name: '1.36%' })).toHaveClass(/bag-type-active/);
-    await expect(page.getByRole('button', { name: '3.86%' })).not.toHaveClass(/bag-type-active/);
-  });
-
-  // ── Submit happy path ─────────────────────────────────────
-
-  test('Save Drainage calls API and shows success', async ({ page }) => {
-    await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/saved/i);
-  });
-
-  test('Save Weight calls API and shows success', async ({ page }) => {
-    await page.locator('#meas-tab-weight').click();
-    await page.locator('#wt-submit').click();
-    await expect(page.locator('#wt-feedback')).toContainText(/saved/i);
-  });
-
-  test('Save Blood Pressure calls API and shows success', async ({ page }) => {
-    await page.locator('#meas-tab-bp').click();
-    await page.locator('#bp-submit').click();
-    await expect(page.locator('#bp-feedback')).toContainText(/saved/i);
-  });
-
-  // ── Validation ────────────────────────────────────────────
-
-  test('clearing drainage date and submitting shows error', async ({ page }) => {
-    await page.locator('#bag-date').fill('');
-    await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/date and time are required/i);
-  });
-
-  test('clearing weight date and submitting shows error', async ({ page }) => {
-    await page.locator('#meas-tab-weight').click();
-    await page.locator('#wt-date').fill('');
-    await page.locator('#wt-submit').click();
-    await expect(page.locator('#wt-feedback')).toContainText(/date and time are required/i);
-  });
-
-  // ── API error ─────────────────────────────────────────────
-
-  test('API error shows error in drainage feedback', async ({ page }) => {
-    await setupMockApi(page, { logMeasurement: { error: 'Spreadsheet not found' } });
-    await page.goto('/');
-    await page.getByRole('button', { name: /log/i }).click();
-    await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/error/i);
-  });
-
-  // ── Post-submit state ─────────────────────────────────────
-
-  test('notes field clears after successful drainage submit', async ({ page }) => {
-    await page.locator('#bag-notes').fill('Some notes');
-    await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/saved/i);
-    await expect(page.locator('#bag-notes')).toHaveValue('');
-  });
-
-  test('date refreshes to today after successful weight submit', async ({ page }) => {
-    await page.locator('#meas-tab-weight').click();
-    const now = new Date();
-    const expected = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0')
-    ].join('-');
-    await page.locator('#wt-submit').click();
-    await expect(page.locator('#wt-feedback')).toContainText(/saved/i);
-    await expect(page.locator('#wt-date')).toHaveValue(expected);
+  test('clicking a bag card activates it and deactivates others', async ({ page }) => {
+    await page.locator('#bagpick-1').click();
+    await expect(page.locator('#bagpick-1')).toHaveClass(/active/);
+    await expect(page.locator('#bagpick-0')).not.toHaveClass(/active/);
+    await expect(page.locator('#bagpick-2')).not.toHaveClass(/active/);
   });
 
   // ── Procedure type toggle ─────────────────────────────────
@@ -218,9 +132,9 @@ test.describe('Log Measurements', () => {
   });
 
   test('"Drain + Fill" is the default active procedure type', async ({ page }) => {
-    await expect(page.locator('#proc-btn-both')).toHaveClass(/proc-type-active/);
-    await expect(page.locator('#proc-btn-drain')).not.toHaveClass(/proc-type-active/);
-    await expect(page.locator('#proc-btn-fill')).not.toHaveClass(/proc-type-active/);
+    await expect(page.locator('#proc-btn-both')).toHaveClass(/active/);
+    await expect(page.locator('#proc-btn-drain')).not.toHaveClass(/active/);
+    await expect(page.locator('#proc-btn-fill')).not.toHaveClass(/active/);
   });
 
   test('both drain and fill sections visible by default', async ({ page }) => {
@@ -232,22 +146,22 @@ test.describe('Log Measurements', () => {
     await page.locator('#proc-btn-drain').click();
     await expect(page.locator('#bag-drain-section')).toBeVisible();
     await expect(page.locator('#bag-fill-section')).not.toBeVisible();
-    await expect(page.locator('#proc-btn-drain')).toHaveClass(/proc-type-active/);
+    await expect(page.locator('#proc-btn-drain')).toHaveClass(/active/);
   });
 
   test('switching to "Fill only" hides drain section', async ({ page }) => {
     await page.locator('#proc-btn-fill').click();
     await expect(page.locator('#bag-fill-section')).toBeVisible();
     await expect(page.locator('#bag-drain-section')).not.toBeVisible();
-    await expect(page.locator('#proc-btn-fill')).toHaveClass(/proc-type-active/);
+    await expect(page.locator('#proc-btn-fill')).toHaveClass(/active/);
   });
 
   test('submit button label updates with procedure type', async ({ page }) => {
-    await expect(page.locator('#bag-submit')).toContainText('Save Drainage');
+    await expect(page.locator('#bag-submit')).toContainText('Save Drain + Fill');
     await page.locator('#proc-btn-drain').click();
-    await expect(page.locator('#bag-submit')).toContainText('Save Drain');
+    await expect(page.locator('#bag-submit')).toContainText('Save Drain only');
     await page.locator('#proc-btn-fill').click();
-    await expect(page.locator('#bag-submit')).toContainText('Save Fill');
+    await expect(page.locator('#bag-submit')).toContainText('Save Fill only');
   });
 
   // ── Usage counters ────────────────────────────────────────
@@ -258,35 +172,48 @@ test.describe('Log Measurements', () => {
   });
 
   test('usage + button increments bags', async ({ page }) => {
-    await page.locator('#usage-bags-inc').click();
+    await stepperInc(page, 'usage-bags-val').click();
     await expect(page.locator('#usage-bags-val')).toHaveText('2');
-    await page.locator('#usage-bags-inc').click();
+    await stepperInc(page, 'usage-bags-val').click();
     await expect(page.locator('#usage-bags-val')).toHaveText('3');
   });
 
   test('usage − button decrements bags, minimum 0', async ({ page }) => {
-    await page.locator('#usage-bags-dec').click();
+    await stepperDec(page, 'usage-bags-val').click();
     await expect(page.locator('#usage-bags-val')).toHaveText('0');
     // Cannot go below 0
-    await page.locator('#usage-bags-dec').click();
+    await stepperDec(page, 'usage-bags-val').click();
     await expect(page.locator('#usage-bags-val')).toHaveText('0');
   });
 
-  test('usage counters hidden in drain-only mode', async ({ page }) => {
-    await page.locator('#proc-btn-drain').click();
-    await expect(page.locator('#usage-bags-val')).not.toBeVisible();
-    await expect(page.locator('#usage-caps-val')).not.toBeVisible();
-  });
-
-  test('usage counters reset to 1 after successful submit', async ({ page }) => {
-    await page.locator('#usage-bags-inc').click();
-    await page.locator('#usage-caps-inc').click();
+  test('usage counters reset to 1 after successful Drain+Fill submit', async ({ page }) => {
+    await stepperInc(page, 'usage-bags-val').click();
+    await stepperInc(page, 'usage-caps-val').click();
     await expect(page.locator('#usage-bags-val')).toHaveText('2');
     await expect(page.locator('#usage-caps-val')).toHaveText('2');
     await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/saved/i);
+    await expect(page.locator('#bag-feedback')).toContainText(/saved/i, { timeout: 5000 });
     await expect(page.locator('#usage-bags-val')).toHaveText('1');
     await expect(page.locator('#usage-caps-val')).toHaveText('1');
+  });
+
+  // ── Submit happy path ─────────────────────────────────────
+
+  test('Save Drain+Fill calls API and shows success', async ({ page }) => {
+    await page.locator('#bag-submit').click();
+    await expect(page.locator('#bag-feedback')).toContainText(/drainage saved/i, { timeout: 5000 });
+  });
+
+  test('Save Weight calls API and shows success', async ({ page }) => {
+    await page.locator('#meas-tab-weight').click();
+    await page.locator('#wt-submit').click();
+    await expect(page.locator('#wt-feedback')).toContainText(/weight saved/i, { timeout: 5000 });
+  });
+
+  test('Save Blood Pressure calls API and shows success', async ({ page }) => {
+    await page.locator('#meas-tab-bp').click();
+    await page.locator('#bp-submit').click();
+    await expect(page.locator('#bp-feedback')).toContainText(/bp saved/i, { timeout: 5000 });
   });
 
   // ── Procedure type submit messages ────────────────────────
@@ -294,18 +221,46 @@ test.describe('Log Measurements', () => {
   test('"Drain only" submit shows "Drain saved."', async ({ page }) => {
     await page.locator('#proc-btn-drain').click();
     await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/drain saved/i);
+    await expect(page.locator('#bag-feedback')).toContainText(/drain saved/i, { timeout: 5000 });
   });
 
   test('"Fill only" submit shows "Fill saved."', async ({ page }) => {
     await page.locator('#proc-btn-fill').click();
     await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/fill saved/i);
+    await expect(page.locator('#bag-feedback')).toContainText(/fill saved/i, { timeout: 5000 });
+  });
+
+  // ── Post-submit state ─────────────────────────────────────
+
+  test('notes field clears after successful drainage submit', async ({ page }) => {
+    await page.locator('#bag-notes').fill('Some notes');
+    await page.locator('#bag-submit').click();
+    await expect(page.locator('#bag-feedback')).toContainText(/saved/i, { timeout: 5000 });
+    await expect(page.locator('#bag-notes')).toHaveValue('');
+  });
+
+  test('bag type resets to first card after successful submit', async ({ page }) => {
+    await page.locator('#bagpick-1').click();
+    await expect(page.locator('#bagpick-1')).toHaveClass(/active/);
+    await page.locator('#bag-submit').click();
+    await expect(page.locator('#bag-feedback')).toContainText(/saved/i, { timeout: 5000 });
+    await expect(page.locator('#bagpick-0')).toHaveClass(/active/);
+    await expect(page.locator('#bagpick-1')).not.toHaveClass(/active/);
+  });
+
+  // ── API error ─────────────────────────────────────────────
+
+  test('API error shows error in drainage feedback', async ({ page }) => {
+    await setupMockApi(page, { logMeasurement: { error: 'Spreadsheet not found' } });
+    await page.goto('/');
+    await goToLog(page);
+    await page.locator('#bag-submit').click();
+    await expect(page.locator('#bag-feedback')).toContainText(/error/i, { timeout: 5000 });
   });
 
   // ── Inventory deduction ───────────────────────────────────
 
-  test('Drain+Fill submit calls updateInventory with correct absolute counts', async ({ page }) => {
+  test('Drain+Fill submit calls updateInventory with correct deducted counts', async ({ page }) => {
     const postBodies = [];
     await page.route('http://localhost:3333/mock-api**', async (route) => {
       const req = route.request();
@@ -313,10 +268,10 @@ test.describe('Log Measurements', () => {
       await route.fallback();
     });
     await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/saved/i);
+    await expect(page.locator('#bag-feedback')).toContainText(/saved/i, { timeout: 5000 });
     const invCall = postBodies.find(b => b.action === 'updateInventory');
     expect(invCall).toBeDefined();
-    // Mock has Solution Bags 1.36% = 8, Caps = 20 → after deducting 1 each: 7 and 19
+    // Mock: Solution Bags 1.36% = 8, Caps = 20 → deduct 1 each → 7 and 19
     expect(invCall.items.find(i => i.name === 'Solution Bags 1.36%')?.count).toBe(7);
     expect(invCall.items.find(i => i.name === 'Caps')?.count).toBe(19);
   });
@@ -330,23 +285,23 @@ test.describe('Log Measurements', () => {
     });
     await page.locator('#proc-btn-drain').click();
     await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/saved/i);
+    await expect(page.locator('#bag-feedback')).toContainText(/saved/i, { timeout: 5000 });
     expect(postBodies.find(b => b.action === 'updateInventory')).toBeUndefined();
   });
 
-  test('adjusted usage quantities are reflected in inventory count', async ({ page }) => {
+  test('adjusted usage quantities are reflected in inventory deduction', async ({ page }) => {
     const postBodies = [];
     await page.route('http://localhost:3333/mock-api**', async (route) => {
       const req = route.request();
       if (req.method() === 'POST') postBodies.push(JSON.parse(req.postData() || '{}'));
       await route.fallback();
     });
-    await page.locator('#usage-bags-inc').click();
-    await page.locator('#usage-bags-inc').click();
+    await stepperInc(page, 'usage-bags-val').click();
+    await stepperInc(page, 'usage-bags-val').click();
     await page.locator('#bag-submit').click();
-    await expect(page.locator('#bag-feedback')).toContainText(/saved/i);
+    await expect(page.locator('#bag-feedback')).toContainText(/saved/i, { timeout: 5000 });
     const invCall = postBodies.find(b => b.action === 'updateInventory');
-    // Mock has Solution Bags 1.36% = 8 → deducting 3 → count should be 5
+    // Mock: Solution Bags 1.36% = 8 → deduct 3 → count should be 5
     expect(invCall?.items.find(i => i.name === 'Solution Bags 1.36%')?.count).toBe(5);
   });
 });

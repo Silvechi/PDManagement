@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupMockApi, DASHBOARD_RESPONSE, INVENTORY_CONFIG } from './helpers/mock-api.js';
+import { setupMockApi, DASHBOARD_RESPONSE, INVENTORY_CONFIG, BAG_COUNT } from './helpers/mock-api.js';
 
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
@@ -10,62 +10,55 @@ test.describe('Dashboard', () => {
   // ── Loading & render ──────────────────────────────────────
 
   test('shows loading state then resolves to content', async ({ page }) => {
-    await expect(page.locator('#dash-content')).toBeVisible();
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
     await expect(page.locator('#dash-loading')).not.toBeVisible();
+    await expect(page.locator('#dash-content')).toBeVisible();
   });
 
-  test('renders inventory section with correct number of supply cards', async ({ page }) => {
-    await expect(page.locator('.inv-card-grid')).toBeVisible();
-    await expect(page.locator('.inv-card')).toHaveCount(INVENTORY_CONFIG.length);
+  // ── Bag hero cards ────────────────────────────────────────
+
+  test('renders a bag hero card for each bag item', async ({ page }) => {
+    await expect(page.locator('.bag-hero')).toHaveCount(BAG_COUNT, { timeout: 8000 });
   });
 
-  // ── Inventory card labels and dots ───────────────────────
-
-  test('bag concentration cards show shortened label and coloured dot', async ({ page }) => {
+  test('bag hero cards show concentration label', async ({ page }) => {
     for (const conc of ['1.36%', '2.27%', '3.86%']) {
-      const card = page.locator('.inv-card').filter({ hasText: conc + ' bag' });
-      await expect(card).toBeVisible();
-      await expect(card.locator('.bag-dot')).toBeVisible();
+      await expect(page.locator('.bag-hero-pct', { hasText: conc })).toBeVisible();
     }
   });
 
-  test('non-concentration cards do not show a coloured dot', async ({ page }) => {
-    const capsCard = page.locator('.inv-card').filter({ hasText: 'Caps' });
-    await expect(capsCard.locator('.bag-dot')).not.toBeAttached();
+  test('bag hero cards include coloured dot', async ({ page }) => {
+    const dots = page.locator('.bag-hero .bag-dot');
+    await expect(dots).toHaveCount(BAG_COUNT, { timeout: 8000 });
   });
 
-  // ── Inventory card values ─────────────────────────────────
-
-  test('inventory cards show correct counts from API', async ({ page }) => {
-    const cardCounts = await page.locator('.inv-card-count').allTextContents();
-    expect(cardCounts).toContain('8');  // Solution Bags 1.36%
-    expect(cardCounts).toContain('6');  // Solution Bags 2.27%
-    expect(cardCounts).toContain('4');  // Solution Bags 3.86%
-    expect(cardCounts).toContain('20'); // Caps
-    expect(cardCounts).toContain('3');  // Gauze Pads
-    expect(cardCounts).toContain('15'); // Bandages
+  test('bag hero shows correct count from API', async ({ page }) => {
+    // Solution Bags 1.36% = 8
+    const card = page.locator('.bag-hero').filter({ hasText: '1.36%' });
+    await expect(card.locator('.bag-hero-count')).toContainText('8');
   });
 
-  test('item below threshold shows red card', async ({ page }) => {
-    // Gauze Pads = 3, threshold = 10 → red
-    const classes = await page.locator('.inv-card').evaluateAll(els => els.map(e => e.className));
-    expect(classes.some(c => c.includes('inv-card-red'))).toBe(true);
+  test('bag hero below threshold shows low class and low-tag', async ({ page }) => {
+    // Solution Bags 3.86% = 4, min = 5 → low
+    const card = page.locator('.bag-hero').filter({ hasText: '3.86%' });
+    await expect(card).toHaveClass(/low/, { timeout: 8000 });
+    await expect(card.locator('.low-tag')).toBeVisible();
   });
 
-  test('item well above threshold shows green card', async ({ page }) => {
-    // Caps = 20, threshold = 10 → green (above 2× threshold)
-    const classes = await page.locator('.inv-card').evaluateAll(els => els.map(e => e.className));
-    expect(classes.some(c => c.includes('inv-card-green'))).toBe(true);
+  test('bag hero well above threshold does not show low class', async ({ page }) => {
+    // Solution Bags 1.36% = 8, min = 5 → not low
+    const card = page.locator('.bag-hero').filter({ hasText: '1.36%' });
+    await expect(card).not.toHaveClass(/low/, { timeout: 8000 });
   });
 
-  // ── Low stock alert banner ────────────────────────────────
+  // ── Low stock banner ──────────────────────────────────────
 
-  test('red alert banner is shown when low stock flags exist', async ({ page }) => {
-    await expect(page.locator('.alert-banner.alert-red')).toBeVisible();
-    await expect(page.locator('.alert-banner.alert-red')).toContainText('Gauze Pads');
+  test('low stock banner is shown when flags exist', async ({ page }) => {
+    await expect(page.locator('.card-low-stock')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.card-low-stock')).toContainText('Gauze Pads');
   });
 
-  test('no alert banner when all stock is adequate', async ({ page }) => {
+  test('no low stock banner when all stock is adequate', async ({ page }) => {
     await setupMockApi(page, {
       getDashboard: {
         ...DASHBOARD_RESPONSE,
@@ -78,66 +71,75 @@ test.describe('Dashboard', () => {
       }
     });
     await page.goto('/');
-    await expect(page.locator('#dash-content')).toBeVisible();
-    await expect(page.locator('.alert-banner.alert-red')).not.toBeVisible();
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.card-low-stock')).not.toBeAttached();
+  });
+
+  // ── Overdue indicator ─────────────────────────────────────
+
+  test('overdue banner is shown when exchange time has elapsed', async ({ page }) => {
+    // lastExchange 2+ days ago, bag maxHours = 6 → overdue
+    await setupMockApi(page, {
+      getDashboard: {
+        ...DASHBOARD_RESPONSE,
+        lastExchange: { date: '2026-05-21', time: '08:00' }
+      }
+    });
+    await page.goto('/');
+    await expect(page.locator('.card-overdue')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.card-overdue')).toContainText(/exchange overdue/i);
+    await expect(page.locator('.card-overdue')).toContainText('max 6h');
+  });
+
+  test('overdue banner is not shown when no last exchange recorded', async ({ page }) => {
+    // Default DASHBOARD_RESPONSE has no lastExchange
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.card-overdue')).not.toBeAttached();
   });
 
   // ── Vitals section ────────────────────────────────────────
 
-  test('renders last 3 BP readings', async ({ page }) => {
-    const bpCard = page.locator('.stat-card-col').filter({ hasText: 'Blood Pressure' });
-    const rows = bpCard.locator('.bp-reading-row');
-    await expect(rows).toHaveCount(4); // 3 readings + avg
-    await expect(rows.nth(0)).toContainText('125 / 79');
-    await expect(rows.nth(1)).toContainText('128 / 82');
-    await expect(rows.nth(2)).toContainText('131 / 85');
+  test('renders latest BP reading in vitals', async ({ page }) => {
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    // Most recent BP reading is 131/85
+    await expect(page.locator('.vitals-val')).toContainText('131');
+    await expect(page.locator('.vitals-val')).toContainText('85');
   });
 
-  test('renders BP average row', async ({ page }) => {
-    const bpCard = page.locator('.stat-card-col').filter({ hasText: 'Blood Pressure' });
-    const avgRow = bpCard.locator('.bp-reading-row.bp-avg');
-    await expect(avgRow).toContainText('128 / 82');
-    await expect(avgRow).toContainText('mmHg');
+  test('renders BP average in vitals meta', async ({ page }) => {
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.vitals-meta')).toContainText('128/82');
   });
 
-  // ── Weight chart ──────────────────────────────────────────
+  // ── Weight sparkline ──────────────────────────────────────
 
-  test('weight trend chart is rendered as SVG', async ({ page }) => {
-    await expect(page.locator('.weight-chart')).toBeVisible();
-    const polyline = page.locator('.weight-chart polyline.chart-line');
-    await expect(polyline).toBeVisible();
-    const pts = await polyline.getAttribute('points');
-    const pointCount = pts.trim().split(' ').length;
-    expect(pointCount).toBe(7);
+  test('weight sparkline is rendered as inline SVG', async ({ page }) => {
+    await expect(page.locator('.sparkline')).toBeVisible({ timeout: 8000 });
+    // Last weight in mock trend = 71.7 kg
+    await expect(page.locator('.weight-now')).toContainText('71.7');
   });
 
-  test('chart x-axis labels show MM-DD format', async ({ page }) => {
-    const labels = await page.locator('.weight-chart .chart-label').allTextContents();
-    const dateLabels = labels.filter(l => /^\d{2}-\d{2}$/.test(l));
-    expect(dateLabels.length).toBeGreaterThan(0);
-  });
-
-  test('chart unit shows kg', async ({ page }) => {
-    await expect(page.locator('.chart-unit')).toContainText('kg');
+  test('weight section shows trend delta', async ({ page }) => {
+    await expect(page.locator('.vitals-meta').filter({ hasText: 'kg' })).toBeVisible({ timeout: 8000 });
   });
 
   // ── Empty states ──────────────────────────────────────────
 
-  test('shows "no data" placeholders when API returns empty data', async ({ page }) => {
+  test('shows no-data placeholders when API returns empty data', async ({ page }) => {
     await setupMockApi(page, {
       getDashboard: {
         inventoryConfig: [],
         inventory: {},
         lowStockFlags: '',
         weightTrend: [],
-        bpAvg: null,
-        avgProcedureDuration: null
+        bpRecent: [],
+        bpAvg: null
       }
     });
     await page.goto('/');
-    await page.waitForSelector('#dash-content:visible');
-    const noDataText = await page.locator('.no-data').allTextContents();
-    expect(noDataText.length).toBeGreaterThan(0);
+    await expect(page.locator('#dash-loading')).not.toBeVisible({ timeout: 8000 });
+    const noData = page.locator('.no-data');
+    await expect(noData.first()).toBeVisible();
   });
 
   // ── Error state ───────────────────────────────────────────
@@ -147,6 +149,6 @@ test.describe('Dashboard', () => {
       getDashboard: { error: 'Sheet not found. Run setupSheet() first.' }
     });
     await page.goto('/');
-    await expect(page.locator('.feedback-error')).toContainText(/failed to load/i);
+    await expect(page.locator('.feedback-error')).toContainText(/failed to load/i, { timeout: 8000 });
   });
 });

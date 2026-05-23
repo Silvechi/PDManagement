@@ -1,52 +1,60 @@
 import { test, expect } from '@playwright/test';
 import { setupMockApi } from './helpers/mock-api.js';
 
+// Wait helper: ensures dashboard has finished loading before navigation tests run
+async function waitForDashboard(page) {
+  await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+}
+
 test.describe('Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
     await page.goto('/');
+    await waitForDashboard(page);
   });
 
-  test('bottom nav renders all 4 tabs', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /dashboard/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /log/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /inventory/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /prep/i })).toBeVisible();
+  test('bottom nav renders all 6 tabs', async ({ page }) => {
+    await expect(page.locator('#botnav-dashboard')).toBeVisible();
+    await expect(page.locator('#botnav-measurements')).toBeVisible();
+    await expect(page.locator('#botnav-inventory')).toBeVisible();
+    await expect(page.locator('#botnav-history')).toBeVisible();
+    await expect(page.locator('#botnav-prep')).toBeVisible();
+    await expect(page.locator('#botnav-users')).toBeVisible();
   });
 
   test('dashboard is the default active screen', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-    const dashBtn = page.getByRole('button', { name: /dashboard/i });
-    await expect(dashBtn).toHaveClass(/active/);
+    await expect(page.locator('#dash-content')).toBeVisible();
+    await expect(page.locator('#botnav-dashboard')).toHaveClass(/active/);
   });
 
   test('tapping Log tab shows measurement screen', async ({ page }) => {
-    await page.getByRole('button', { name: /log/i }).click();
-    await expect(page.getByRole('heading', { name: 'Log Measurements' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /log/i })).toHaveClass(/active/);
+    await page.locator('#botnav-measurements').click();
+    await expect(page.getByRole('heading', { name: 'Log', exact: true })).toBeVisible();
+    await expect(page.locator('#botnav-measurements')).toHaveClass(/active/);
   });
 
-  test('tapping Inventory tab shows inventory manager', async ({ page }) => {
-    await page.locator('#nav-inventory').click();
-    await expect(page.getByRole('heading', { name: 'Inventory Manager' })).toBeVisible();
-    await expect(page.locator('#nav-inventory')).toHaveClass(/active/);
+  test('tapping Inventory tab shows inventory screen', async ({ page }) => {
+    await page.locator('#botnav-inventory').click();
+    await expect(page.getByRole('heading', { name: 'Inventory', exact: true })).toBeVisible();
+    await expect(page.locator('#botnav-inventory')).toHaveClass(/active/);
   });
 
   test('tapping Prep tab shows prep screen', async ({ page }) => {
-    await page.locator('#nav-prep').click();
-    await expect(page.getByRole('heading', { name: 'Prep' })).toBeVisible();
-    await expect(page.locator('#nav-prep')).toHaveClass(/active/);
+    await page.locator('#botnav-prep').click();
+    await expect(page.getByRole('heading', { name: 'Prep', exact: true })).toBeVisible();
+    await expect(page.locator('#botnav-prep')).toHaveClass(/active/);
   });
 
   test('each tab switch updates the active highlight', async ({ page }) => {
     const tabs = [
-      { btn: /log/i,       heading: 'Log Measurements' },
-      { btn: /inventory/i, heading: 'Inventory Manager' },
-      { btn: /prep/i,      heading: 'Prep' },
+      { id: '#botnav-measurements', heading: 'Log'       },
+      { id: '#botnav-inventory',    heading: 'Inventory' },
+      { id: '#botnav-prep',         heading: 'Prep'      },
     ];
-    for (const { btn, heading } of tabs) {
-      await page.getByRole('button', { name: btn }).click();
-      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    for (const { id, heading } of tabs) {
+      await page.locator(id).click();
+      await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+      await expect(page.locator(id)).toHaveClass(/active/);
     }
   });
 });

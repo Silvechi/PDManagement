@@ -5,30 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#1a6fc4">
+  <meta name="theme-color" content="#2a5fd6">
   <title>PD Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <div class="pd-root" id="pd-root">
+    <header class="topbar" id="topbar"></header>
+    <div id="offline-banner" role="alert"></div>
+    <main class="content" id="screen-container" role="main"></main>
+    <nav class="botnav" id="bottom-nav" aria-label="Main navigation"></nav>
+  </div>
 
-  <!-- Offline / config error banner (injected by api.js) -->
-  <!-- #offline-banner is created dynamically -->
-
-  <!-- Bottom (mobile) / Top (desktop) navigation -->
-  <nav id="bottom-nav" aria-label="Main navigation"></nav>
-
-  <!-- All screen content renders here -->
-  <main id="screen-container" role="main"></main>
-
-  <!-- Load scripts in dependency order -->
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/drum-picker.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/measurements.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/prep.js"></script>
+  <script src="js/history.js"></script>
   <script src="js/app.js"></script>
-
 </body>
 </html>

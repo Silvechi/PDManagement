@@ -1,137 +1,138 @@
 // ============================================================
-// drum-picker.js — Scroll-wheel style numeric input
+// drum-picker.js — Scroll-snap drum wheel input
 //
 // Usage:
 //   const picker = new DrumPicker(containerEl, {
-//     min: 0, max: 250, value: 65,
+//     min: 0, max: 9, value: 5,
 //     label: 'kg integer', onChange: v => console.log(v)
 //   });
-//   picker.value            // get
-//   picker.value = 70       // set
+//   picker.value       // get current value
+//   picker.value = 7   // set value (animates scroll)
 // ============================================================
 
 class DrumPicker {
   constructor(container, options = {}) {
-    this.min      = options.min   !== undefined ? options.min   : 0;
-    this.max      = options.max   !== undefined ? options.max   : 999;
-    this.step     = options.step  !== undefined ? options.step  : 1;
-    this.label    = options.label !== undefined ? options.label : '';
-    this._value   = this._clamp(options.value !== undefined ? options.value : this.min);
-    this.onChange = options.onChange || function () {};
-
-    // Touch state
-    this._touchLastY = 0;
-    this._touchAccum = 0;
-    this.ITEM_H = 52;
-
+    this.min      = options.min      ?? 0;
+    this.max      = options.max      ?? 9;
+    this._value   = this._clamp(options.value ?? this.min);
+    this.onChange = options.onChange ?? (() => {});
+    this.ITEM_H   = 44;
+    this._timer   = null;
     this._build(container);
-    this._attach(this._el);
   }
 
   // ── Public API ──────────────────────────────────────────────
 
   get value() { return this._value; }
+
   set value(v) {
     const c = this._clamp(v);
-    if (c !== this._value) {
-      this._value = c;
-      this._render();
-      this.onChange(this._value);
-    }
+    if (c === this._value) return;
+    this._value = c;
+    this._scrollTo(c, false);
+    this._updateOpacity();
+    this.onChange(c);
   }
 
   // ── Private ─────────────────────────────────────────────────
 
   _clamp(v) {
-    return Math.max(this.min, Math.min(this.max, v));
+    return Math.max(this.min, Math.min(this.max, Math.round(Number(v) || 0)));
   }
 
-  _fmt(v) {
-    return String(Math.round(v));
-  }
+  _idxOf(v) { return v - this.min; }
+
+  _fmt(v) { return String(v); }
 
   _build(container) {
+    const H = this.ITEM_H;
+    const digits = String(this.max).length;
+    const w = digits >= 3 ? 78 : digits >= 2 ? 60 : 52;
+
+    let items = '';
+    for (let v = this.min; v <= this.max; v++) {
+      const d = Math.abs(this._idxOf(v) - this._idxOf(this._value));
+      const op = d === 0 ? 1 : d === 1 ? 0.45 : 0;
+      items += `<button type="button" class="drum-item" style="height:${H}px;opacity:${op}" data-v="${v}">${this._fmt(v)}</button>`;
+    }
+
     container.innerHTML = `
-      <div class="dp" tabindex="0"
-           role="spinbutton"
-           aria-valuenow="${this._value}"
-           aria-valuemin="${this.min}"
-           aria-valuemax="${this.max}"
-           aria-label="${this.label}">
-        <div class="dp-items"></div>
-        <div class="dp-selector"></div>
+      <div class="drum" style="height:${H * 3}px;width:${w}px">
+        <div class="drum-scroll">
+          <div style="height:${H}px;flex-shrink:0" aria-hidden="true"></div>
+          ${items}
+          <div style="height:${H}px;flex-shrink:0" aria-hidden="true"></div>
+        </div>
+        <div class="drum-band" aria-hidden="true"></div>
+        <div class="drum-fade-top" aria-hidden="true"></div>
+        <div class="drum-fade-bot" aria-hidden="true"></div>
       </div>
     `;
-    this._el      = container.querySelector('.dp');
-    this._itemsEl = container.querySelector('.dp-items');
-    this._render();
+
+    this._scroll = container.querySelector('.drum-scroll');
+    this._attachEvents();
+    // Use requestAnimationFrame so layout is settled before scrolling
+    requestAnimationFrame(() => this._scrollTo(this._value, false));
   }
 
-  _render() {
-    const rows = [];
-    for (let offset = -2; offset <= 2; offset++) {
-      const raw   = this._value + offset * this.step;
-      const ghost = raw < this.min || raw > this.max;
-      const sel   = offset === 0;
-      const cls   = ['dp-item', sel ? 'dp-selected' : '', ghost ? 'dp-ghost' : '']
-        .filter(Boolean).join(' ');
-      rows.push(`<div class="${cls}">${ghost ? '' : this._fmt(raw)}</div>`);
-    }
-    this._itemsEl.innerHTML = rows.join('');
-    this._el.setAttribute('aria-valuenow', this._value);
-  }
-
-  _step(delta) {
-    // Avoid floating-point drift for fractional steps
-    const precision = String(this.step).includes('.')
-      ? String(this.step).split('.')[1].length : 0;
-    const next = this._clamp(
-      parseFloat((this._value + delta * this.step).toFixed(precision))
-    );
-    if (next !== this._value) {
-      this._value = next;
-      this._render();
-      this.onChange(this._value);
+  _scrollTo(v, smooth = true) {
+    if (!this._scroll) return;
+    const top = this._idxOf(v) * this.ITEM_H;
+    if (smooth) {
+      this._scroll.scrollTo({ top, behavior: 'smooth' });
+    } else {
+      this._scroll.scrollTop = top;
     }
   }
 
-  _attach(el) {
-    // Mouse wheel: scroll up (deltaY < 0) = increment, down = decrement
-    el.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      this._step(e.deltaY < 0 ? 1 : -1);
-    }, { passive: false });
+  _updateOpacity() {
+    if (!this._scroll) return;
+    const currentIdx = this._idxOf(this._value);
+    this._scroll.querySelectorAll('.drum-item').forEach((el, i) => {
+      const d = Math.abs(i - currentIdx);
+      el.style.opacity = d === 0 ? 1 : d === 1 ? 0.45 : 0;
+    });
+  }
 
-    // Touch drag: drag up (finger moves up) = increment
-    el.addEventListener('touchstart', (e) => {
-      this._touchLastY = e.touches[0].clientY;
-      this._touchAccum = 0;
+  _attachEvents() {
+    const scroll = this._scroll;
+
+    scroll.addEventListener('scroll', () => {
+      // Live opacity update while scrolling
+      const liveIdx = Math.round(scroll.scrollTop / this.ITEM_H);
+      const liveV   = this._clamp(this.min + liveIdx);
+      if (liveV !== this._value) {
+        this._value = liveV;
+        this._updateOpacity();
+      }
+
+      // Hard-snap + fire onChange after scroll settles
+      clearTimeout(this._timer);
+      this._timer = setTimeout(() => {
+        const idx     = Math.round(scroll.scrollTop / this.ITEM_H);
+        const snapped = this._clamp(this.min + idx);
+        this._value   = snapped;
+        this._updateOpacity();
+        this.onChange(snapped);
+        // Ensure pixel-perfect snap position
+        const target = this._idxOf(snapped) * this.ITEM_H;
+        if (Math.abs(scroll.scrollTop - target) > 0.5) {
+          scroll.scrollTo({ top: target, behavior: 'smooth' });
+        }
+      }, 110);
     }, { passive: true });
 
-    el.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      const y = e.touches[0].clientY;
-      this._touchAccum += this._touchLastY - y; // positive when dragging up
-      this._touchLastY  = y;
-      const steps = Math.trunc(this._touchAccum / this.ITEM_H);
-      if (steps !== 0) {
-        this._step(steps);
-        this._touchAccum -= steps * this.ITEM_H;
+    // Tap an item to scroll to it
+    scroll.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-v]');
+      if (!btn) return;
+      const v = parseInt(btn.dataset.v, 10);
+      if (v !== this._value) {
+        this._value = v;
+        this._scrollTo(v, true);
+        this._updateOpacity();
+        this.onChange(v);
       }
-    }, { passive: false });
-
-    // Keyboard: ArrowUp/Down like a number spinner
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowUp')   { e.preventDefault(); this._step(1);  }
-      if (e.key === 'ArrowDown') { e.preventDefault(); this._step(-1); }
-      if (e.key === 'PageUp')    { e.preventDefault(); this._step(10); }
-      if (e.key === 'PageDown')  { e.preventDefault(); this._step(-10); }
-    });
-
-    // Tap: upper half = decrement, lower half = increment
-    el.addEventListener('click', (e) => {
-      const rect = el.getBoundingClientRect();
-      this._step(e.clientY < rect.top + rect.height / 2 ? -1 : 1);
     });
   }
 }

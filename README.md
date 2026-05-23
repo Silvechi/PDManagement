@@ -8,10 +8,11 @@ A web-based medical tracking platform for peritoneal dialysis patients. Tracks d
 
 | Screen | Purpose |
 |---|---|
-| **Dashboard** | At-a-glance view: inventory status (color-coded), 7-day weight trend chart (kg), average BP |
-| **Log** | Three toggled cards — Drainage (default), Weight, Blood Pressure — each independently submittable with scroll-wheel numeric pickers and auto-filled date/time |
-| **Inventory** | Adjust supply counts with `+` / `−` buttons; item list and low-stock thresholds are driven by the Config sheet |
-| **Prep** | Static reference: what to gather before the procedure and the procedure steps, both read from the Config sheet. Tap any item to reveal an explanation tooltip (configured in column D of the Config sheet) |
+| **Dashboard** | At-a-glance view: solution bag counts (colour-coded), 7-day weight trend sparkline, recent BP readings, time since last exchange. Low-stock alert banner. |
+| **Log** | Three toggled cards — Drainage (default), Weight, Blood Pressure — each independently submittable with scroll-wheel numeric pickers and auto-filled date/time. Shows time since last exchange. |
+| **Inventory** | Adjust supply counts with `+` / `−` buttons. Item list, low-stock thresholds, bag colours, and display names are all driven by the Config sheet. |
+| **History** | Chronological log of exchange entries (drain/fill). Configurable date range with from/to date pickers and 1W/1M/3M presets. Newest entries first. |
+| **Prep** | Static reference: what to gather before the procedure and the procedure steps. Both read from the Config sheet. Tap any item to reveal a tooltip explanation. |
 
 ---
 
@@ -22,14 +23,27 @@ Browser (index.html + vanilla JS)
         ↓
 Google Apps Script Web App  (apps-script/Code.gs)
         ↓
-Google Sheets  (tabs: Daily_Measurements, Inventory, Dashboard, Config)
+Google Sheets  (tabs: Daily_Measurements, Inventory, Dashboard, Config, Tokens)
 ```
 
 **Why this stack:**
 - Zero hosting cost
-- Google Sheets = shareable live dashboard for any viewer
+- Google Sheets = live data store and admin panel
 - Apps Script = free API layer, no server needed
 - Pure HTML/CSS/JS = works on any device via URL
+
+---
+
+## Security model
+
+Access is controlled by per-device tokens rather than a single shared password:
+
+1. First visit → registration form → device generates a UUID token → GAS records it as `pending` in the **Tokens** sheet
+2. Owner opens the Tokens sheet and changes status to `approved`
+3. Device bookmarks `app-url/#token` → future visits validate automatically
+4. To revoke a device, change its status to `revoked` in the sheet
+
+The token is stored in both `localStorage` (persists across sessions) and the URL fragment (acts as the bookmark). Both must be present; an attacker needs the specific bookmarked URL on the registered device.
 
 ---
 
@@ -39,7 +53,7 @@ Google Sheets  (tabs: Daily_Measurements, Inventory, Dashboard, Config)
 - **Scroll-wheel pickers**: numerical values use a physical drum/scroll-wheel UI — no keyboard required
 - **Auto-timestamp**: date and time pre-filled on every form, always editable
 - **Never silent-fail**: all API calls show visible feedback on error, with an offline banner if the server is unreachable
-- **Config-driven**: inventory items, low-stock thresholds, prep checklist, and procedure steps all live in a Google Sheet `Config` tab — no code changes needed to update them
+- **Config-driven**: inventory items, thresholds, bag colours, prep checklist, and procedure steps all live in the `Config` sheet — no code changes needed to update them
 - **Responsive**: single-column on mobile, card grid on tablet/desktop; nav moves from bottom to top on wide screens
 
 ---
@@ -49,7 +63,7 @@ Google Sheets  (tabs: Daily_Measurements, Inventory, Dashboard, Config)
 ```
 PDManagement/
 ├── index.html                  App shell + screen router
-├── mockup.html                 Static design mockup (open in browser)
+├── mockup-proposed.html        Design mockup reference (open in browser)
 ├── package.json                Dev dependencies (Playwright)
 ├── playwright.config.js        Test configuration
 │
@@ -57,13 +71,16 @@ PDManagement/
 │   └── styles.css              Mobile-first styles, design tokens, all components
 │
 ├── js/
-│   ├── app.js                  Screen routing, nav, global init
-│   ├── api.js                  fetch() wrapper, timeout, offline banner, API object
+│   ├── config.js               Local config — sets APPS_SCRIPT_URL (gitignored)
+│   ├── app.js                  Screen routing, nav, global init, shared helpers
+│   ├── api.js                  fetch() wrapper, timeout, device token, API object
+│   ├── auth.js                 Device token auth — registration, pending, denied screens
 │   ├── drum-picker.js          Scroll-wheel numeric input component
-│   ├── dashboard.js            Dashboard render + SVG weight chart
+│   ├── dashboard.js            Dashboard render + SVG weight sparkline
 │   ├── measurements.js         Three-card measurement log with toggle + drum pickers
 │   ├── inventory.js            Inventory display + +/− adjustments + save
-│   └── prep.js                 Prep screen (what to prepare + procedure steps)
+│   ├── history.js              Exchange history log with date range picker
+│   └── prep.js                 Prep screen (checklist + procedure steps)
 │
 ├── apps-script/
 │   └── Code.gs                 Google Apps Script backend (all endpoints)
@@ -73,7 +90,7 @@ PDManagement/
     ├── dashboard.spec.js
     ├── measurements.spec.js
     ├── inventory.spec.js
-    ├── timer.spec.js           (Prep screen tests)
+    ├── timer.spec.js
     └── navigation.spec.js
 ```
 
@@ -82,22 +99,29 @@ PDManagement/
 ## Google Sheets structure
 
 ### `Daily_Measurements`
-| Date | Time | Weight (kg) | BP Systolic | BP Diastolic | Bag Weight After Drainage (kg) | Notes | Measurement Type |
+| Date | Time | Weight (kg) | BP Systolic | BP Diastolic | Bag Weight After Drainage (kg) | Notes | Bag Type | Measurement Type |
+
+`Measurement Type` values: `drain`, `fill`, `drain_fill`, `weight`, `bp`
 
 ### `Inventory`
 | Date | Item Name | Count |
 
-*(Tall format — one row per item per save. Items are defined in the Config tab.)*
+*(Tall format — one row per item per save. Latest row per item wins.)*
 
 ### `Config`
-| Category | Key | Value |
+| Category | Key | Value | Description | isBag | active | color | displayName |
 
-Config rows:
-- `inventory` rows define supply items and their minimum counts
-- `prep_items` rows define the "what to prepare" list (Key = order number)
-- `prep_steps` rows define procedure steps (Key = order number)
+Config row categories:
+- `inventory` — supply items. `isBag=TRUE` marks solution bags; `active=FALSE` hides an item without deleting it; `color` is a hex code for the bag dot; `displayName` is the label shown in the UI (e.g. `2.27%`)
+- `prep_items` — the pre-procedure checklist (Key = order number)
+- `prep_steps` — numbered procedure steps (Key = order number)
 
-### `Dashboard` *(read-only, populated by API)*
+### `Tokens`
+| Token | Label | Status | Created | Last Used |
+
+Status values: `pending`, `approved`, `revoked`. Change `pending` → `approved` to grant a device access.
+
+### `Dashboard` *(unused, kept for legacy)*
 
 ---
 
@@ -106,10 +130,9 @@ Config rows:
 ### 1. Set up Google Sheets
 
 1. Create a new Google Sheet
-2. Name the 4 tabs exactly: `Daily_Measurements`, `Inventory`, `Dashboard`, `Config`
-3. Open **Extensions → Apps Script**
-4. Paste the contents of `apps-script/Code.gs`
-5. Run `setupSheet()` once — creates headers on all tabs and populates Config with default items
+2. Open **Extensions → Apps Script**
+3. Paste the contents of `apps-script/Code.gs`, save
+4. Run `setupSheet()` once — creates all five tabs with headers, populates Config with defaults, and adds the status dropdown to the Tokens tab
 
 ### 2. Deploy as a Web App
 
@@ -119,18 +142,26 @@ Config rows:
    - Who has access: **Anyone**
 3. Click **Deploy** and copy the generated URL
 
-### 3. Wire up the frontend
+> If you ever edit `Code.gs`, create a **New deployment** to publish changes. Saving the file alone does not update the live app.
 
-Open `js/api.js` and replace the placeholder:
+### 3. Configure the frontend
+
+Create `js/config.js` (this file is gitignored so it won't be committed):
 
 ```js
-const APPS_SCRIPT_URL = window.APPS_SCRIPT_URL || 'YOUR_APPS_SCRIPT_URL_HERE';
-//                                                  ↑ paste your Web App URL here
+window.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_ID/exec';
 ```
 
-### 4. Open the app
+### 4. Register your first device
 
-Open `index.html` in any browser. For sharing, host on GitHub Pages or any static file host and share the URL.
+1. Open `index.html` in a browser
+2. A registration screen appears — enter a device name (optional) and click **Request access**
+3. The app shows a pending screen with a bookmark URL (e.g. `your-app-url/#uuid`)
+4. Open the **Tokens** sheet in Google Sheets — a new row appears with status `pending`
+5. Change `pending` → `approved` using the dropdown
+6. Return to the app and click **Check again** — the app loads
+
+Save the bookmark URL. This is the URL you (and any approved user) will use to open the app.
 
 ---
 
@@ -138,13 +169,16 @@ Open `index.html` in any browser. For sharing, host on GitHub Pages or any stati
 
 All requests go to the single Apps Script Web App URL.
 
-| Method | `action` | Behaviour |
-|---|---|---|
-| `GET` | `getDashboard` | Latest inventory + 7-day stats + inventory config as JSON |
-| `GET` | `getHistory` | Last N rows of `Daily_Measurements` |
-| `GET` | `getConfig` | Prep items and procedure steps from Config tab |
-| `POST` | `logMeasurement` | Append row to `Daily_Measurements` |
-| `POST` | `updateInventory` | Append rows to `Inventory` (one per item) |
+| Method | `action` | Auth required | Behaviour |
+|---|---|---|---|
+| `GET` | `validateToken` | No | Check if a device token is approved/pending/revoked |
+| `GET` | `registerToken` | No | Add a new device token as `pending` |
+| `GET` | `touchToken` | No | Update last-used timestamp for a token |
+| `GET` | `getDashboard` | Yes | Latest inventory + 7-day stats + last exchange |
+| `GET` | `getHistory` | Yes | Exchange rows filtered by `from`/`to` date params |
+| `GET` | `getConfig` | Yes | Prep items and procedure steps from Config tab |
+| `POST` | `logMeasurement` | Yes | Append row to `Daily_Measurements` |
+| `POST` | `updateInventory` | Yes | Append rows to `Inventory` (one per item) |
 
 ---
 
@@ -154,9 +188,22 @@ All of the following can be changed by editing the `Config` tab — no code depl
 
 | Category | What it controls |
 |---|---|
-| `inventory` | Which supplies are tracked and their low-stock thresholds |
-| `prep_items` | The "What to Prepare" list shown on the Prep screen |
-| `prep_steps` | The numbered procedure steps shown on the Prep screen |
+| `inventory` | Supply items, low-stock thresholds, bag colours, display names, active/inactive |
+| `prep_items` | The pre-procedure checklist on the Prep screen |
+| `prep_steps` | The numbered procedure steps on the Prep screen |
+
+**Inventory columns (A–H):**
+
+| Col | Field | Example |
+|---|---|---|
+| A | `inventory` | (literal text) |
+| B | Item name | `Solution Bags 2.27%` |
+| C | Min stock threshold | `5` |
+| D | Description / tooltip | `Green bag. Check expiry.` |
+| E | isBag (`TRUE`/`FALSE`) | `TRUE` |
+| F | active (`TRUE`/`FALSE`) | `TRUE` |
+| G | Colour hex | `#2BA15A` |
+| H | Display name | `2.27%` |
 
 Default values are written by `setupSheet()` and can be freely edited afterwards.
 
@@ -178,7 +225,7 @@ npm run test:ui         # interactive Playwright UI
 npm run test:report     # open HTML report
 ```
 
-142 tests across 5 spec files. The test suite mocks the Apps Script API via `page.route()` so no real Google account is needed.
+Tests mock the Apps Script API via `page.route()` — no real Google account is needed.
 
 ---
 
@@ -186,5 +233,5 @@ npm run test:report     # open HTML report
 
 | # | Issue | Priority |
 |---|---|---|
-| Bug #7 | Dashboard makes two `getDashboard` calls on startup (render + connectivity check) | Low |
+| Bug #7 | Dashboard makes two `getDashboard` calls on startup | Low |
 | Bug #8 | Dashboard tab can't be re-tapped to refresh data | Low |

@@ -1,10 +1,15 @@
 // ============================================================
 // api.js — All fetch() calls to the Apps Script Web App
 // ============================================================
-// URL and token are set in config.js (gitignored).
-// In tests, window.APPS_SCRIPT_URL / window.APPS_SCRIPT_TOKEN are injected by the mock helper.
+// URL is set in config.js (gitignored).
+// APPS_SCRIPT_TOKEN is only used by Playwright tests (injected via window.APPS_SCRIPT_TOKEN);
+// production always uses the per-device token set by auth.js.
 const APPS_SCRIPT_URL   = window.APPS_SCRIPT_URL   || '';
 const APPS_SCRIPT_TOKEN = window.APPS_SCRIPT_TOKEN || '';
+
+// Device token set by auth.js after successful validation
+let _deviceToken = null;
+function setDeviceToken(t) { _deviceToken = t; }
 
 // ============================================================
 // Core fetch helpers
@@ -17,7 +22,8 @@ async function apiGet(action, params = {}) {
   try {
     const url = new URL(APPS_SCRIPT_URL);
     url.searchParams.set('action', action);
-    if (APPS_SCRIPT_TOKEN) url.searchParams.set('token', APPS_SCRIPT_TOKEN);
+    const tok = _deviceToken || APPS_SCRIPT_TOKEN;
+    if (tok) url.searchParams.set('token', tok);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
     const res = await fetch(url.toString(), {
@@ -50,7 +56,7 @@ async function apiPost(action, body = {}) {
       signal: controller.signal,
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain' }, // Apps Script requires text/plain for doPost
-      body: JSON.stringify({ action, token: APPS_SCRIPT_TOKEN || undefined, ...body })
+      body: JSON.stringify({ action, token: _deviceToken || APPS_SCRIPT_TOKEN || undefined, ...body })
     });
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -65,52 +71,22 @@ async function apiPost(action, body = {}) {
 }
 
 // ============================================================
-// Connectivity check — called on app load
-// ============================================================
-
-async function checkConnectivity() {
-  if (!APPS_SCRIPT_URL) {
-    showOfflineBanner('Apps Script URL not configured. Add it to js/config.js.');
-    return false;
-  }
-  try {
-    await apiGet('getDashboard');
-    hideOfflineBanner();
-    return true;
-  } catch (err) {
-    showOfflineBanner('Cannot reach server: ' + err.message);
-    return false;
-  }
-}
-
-function showOfflineBanner(msg) {
-  let banner = document.getElementById('offline-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'offline-banner';
-    document.body.prepend(banner);
-  }
-  banner.textContent = '⚠ ' + msg;
-  banner.style.display = 'block';
-}
-
-function hideOfflineBanner() {
-  const banner = document.getElementById('offline-banner');
-  if (banner) banner.style.display = 'none';
-}
-
-// ============================================================
 // Named API calls (used by each module)
 // ============================================================
 
 const API = {
   getDashboard: () => apiGet('getDashboard'),
 
-  getHistory: (n = 7) => apiGet('getHistory', { n }),
+  getHistory: ({ from, to } = {}) => apiGet('getHistory', { from, to }),
 
   getConfig: () => apiGet('getConfig'),
 
   logMeasurement: (data) => apiPost('logMeasurement', data),
 
-  updateInventory: (data) => apiPost('updateInventory', data)
+  updateInventory: (data) => apiPost('updateInventory', data),
+
+  // Auth — these are public (no approved token required)
+  validateToken: (token) => apiGet('validateToken', { token }),
+  registerToken: (token, label) => apiGet('registerToken', { token, label }),
+  touchToken:    (token) => apiGet('touchToken',    { token }),
 };

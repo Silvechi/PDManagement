@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PD Tracking — Responsive Design Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="design_handoff_pd_tracking/pd-styles.css" />
+<style>
+/* ── Canvas ─────────────────────────────────────────────────── */
+body {
+  margin: 0;
+  background: #e2ddd6 !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 24px 56px;
+  gap: 22px;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  transition: background 0.2s;
+}
+body[data-theme="dark"] { background: #08080a !important; }
+
+.preview-bar {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.preview-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0,0,0,0.38);
+  letter-spacing: 0.02em;
+}
+body[data-theme="dark"] .preview-label { color: rgba(255,255,255,0.3); }
+.theme-btn {
+  padding: 7px 16px;
+  border-radius: 100px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.8);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1815;
+  backdrop-filter: blur(10px);
+  transition: all 0.15s;
+}
+.theme-btn:hover { background: #fff; }
+body[data-theme="dark"] .theme-btn {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.12);
+  color: #e8e4dc;
+}
+
+/* ── Devices row ─────────────────────────────────────────────── */
+.devices-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 36px;
+  overflow-x: auto;
+  padding: 4px 0 16px;
+  width: 100%;
+  max-width: 100%;
+}
+.device-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.device-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(0,0,0,0.28);
+}
+body[data-theme="dark"] .device-label { color: rgba(255,255,255,0.22); }
+
+/* ── Phone frame ─────────────────────────────────────────────── */
+.phone-frame {
+  width: 384px;
+  height: 820px;
+  border-radius: 40px;
+  border: 9px solid #18181c;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 40px 100px rgba(0,0,0,0.38),
+    0 6px 20px rgba(0,0,0,0.18),
+    inset 0 0 0 1px rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+.phone-frame::before {
+  content: '';
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  width: 90px; height: 24px;
+  border-radius: 100px;
+  background: #000;
+  z-index: 10;
+}
+.phone-inner {
+  width: 100%; height: 100%;
+  border-radius: 32px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Tablet frame ────────────────────────────────────────────── */
+.tablet-outer {
+  width: 615px;   /* 820 × 0.75 */
+  height: 675px;  /* 900 × 0.75 */
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 18px;
+}
+.tablet-scaler {
+  width: 820px; height: 900px;
+  transform: scale(0.75);
+  transform-origin: top left;
+}
+.tablet-frame {
+  width: 820px; height: 900px;
+  border-radius: 22px;
+  border: 10px solid #28282e;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  background: #000;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.32), inset 0 0 0 1px rgba(255,255,255,0.06);
+}
+.tablet-inner {
+  width: 100%; height: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Desktop frame ───────────────────────────────────────────── */
+.desktop-outer {
+  width: 832px;   /* 1280 × 0.65 */
+  height: 572px;  /* 880 × 0.65 */
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+.desktop-scaler {
+  width: 1280px; height: 880px;
+  transform: scale(0.65);
+  transform-origin: top left;
+}
+.desktop-frame {
+  width: 1280px; height: 880px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  box-shadow: 0 16px 50px rgba(0,0,0,0.24);
+}
+.b-bar {
+  height: 34px;
+  flex-shrink: 0;
+  background: #e4e0d9;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+}
+[data-theme="dark"] .b-bar { background: #1c1c1e; border-bottom-color: rgba(255,255,255,0.07); }
+.b-dot { width: 12px; height: 12px; border-radius: 50%; }
+.b-dot.r { background: #ff605c; }
+.b-dot.y { background: #ffbd44; }
+.b-dot.g { background: #00ca4e; }
+.b-url {
+  flex: 1; margin: 0 28px; height: 20px;
+  background: rgba(0,0,0,0.06); border-radius: 5px;
+  font-size: 12px; color: #888; padding: 0 12px;
+  display: flex; align-items: center; gap: 6px;
+  font-family: -apple-system, sans-serif;
+}
+[data-theme="dark"] .b-url { background: rgba(255,255,255,0.06); color: #aaa; }
+
+/* ── Shared phone/tablet status bar ─────────────────────────── */
+.pf-status {
+  height: 36px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 28px 0;
+  font: 600 12px -apple-system, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.pf-app {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.pf-app > .pd-root { flex: 1; min-height: 0; }
+
+/* ── App overrides ───────────────────────────────────────────── */
+
+/* Remove brand and avatar from all sizes */
+.brand { display: none; }
+.topbar-right { display: none !important; }
+
+/* Compact bag-hero: horizontal layout (dot+pct left, count+label right) */
+.bag-hero {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 10px 14px !important;
+  gap: 8px !important;
+}
+.bag-hero-top {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.bag-hero-count {
+  font-size: 22px !important;
+  line-height: 1 !important;
+  text-align: right !important;
+}
+.bag-hero-label {
+  text-align: right !important;
+  margin-top: 2px !important;
+}
+.bag-hero-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* Phone: topbar only has brand (hidden) + avatar — just hide it,
+   bottom nav handles navigation */
+@container pd (max-width: 600px) {
+  .topbar { display: none !important; }
+}
+
+/* Compact drum: 3 items visible instead of 5 */
+.drum-fade-top,
+.drum-fade-bot { height: 44px !important; }
+
+/* Keep bag-pick in 3 columns on phone (override 1-col stack) */
+@container pd (max-width: 480px) {
+  .bag-pick { grid-template-columns: repeat(3, 1fr) !important; }
+}
+
+/* Compact bag pick cards */
+.bag-pick-card {
+  padding: 10px 8px !important;
+  min-height: 0 !important;
+  gap: 2px !important;
+}
+.bag-pick-card .bag-dot { width: 20px !important; height: 20px !important; }
+.bag-pick-pct { font-size: 16px !important; margin-top: 4px !important; }
+.bag-pick-stock { font-size: 11px !important; margin-top: 2px !important; }
+.bag-pick-check {
+  top: 7px !important; right: 7px !important;
+  width: 18px !important; height: 18px !important;
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- ── pd-app.jsx ──────────────────────────────────────────── -->
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+const BAGS = {
+  low:  { id: 'low',  pct: '1.36%', color: '#E8A317', soft: '#FCEFD0', deep: '#7A5210' },
+  med:  { id: 'med',  pct: '2.27%', color: '#2BA15A', soft: '#D5EFDF', deep: '#13502A' },
+  high: { id: 'high', pct: '3.86%', color: '#D6347B', soft: '#FADCE8', deep: '#6E1340' },
+};
+const BAG_LIST = [BAGS.low, BAGS.med, BAGS.high];
+
+const I = {
+  home:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M3 11l9-8 9 8M5 9v11h14V9"/></svg>,
+  log:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 5v14M5 12h14"/></svg>,
+  box:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg>,
+  prep:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M9 11l3 3 7-7M20 12v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1h9"/></svg>,
+  edit:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 113 3L7 19l-4 1 1-4z"/></svg>,
+  plus:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>,
+  minus: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="16" height="16"><path d="M5 12h14"/></svg>,
+  check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><path d="M5 12l5 5L20 7"/></svg>,
+  warn:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><path d="M12 9v4M12 17h.01M10.3 3.8L2.6 17a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 3.8a2 2 0 00-3.4 0z"/></svg>,
+  drop:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><path d="M12 2.5s7 7.5 7 12.5a7 7 0 01-14 0c0-5 7-12.5 7-12.5z"/></svg>,
+  scale: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>,
+  heart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><path d="M3 12h3l2-5 3 10 2-7 2 4h6"/></svg>,
+  hist:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>,
+};
+
+// showLabel defaults to false — just dot + percentage
+function BagChip({ bag, size = 'md', selected = false, onClick, showLabel = false, style }) {
+  const sizes = {
+    sm: { h: 28, dot: 10, fs: 12, gap: 6, pad: '0 10px' },
+    md: { h: 36, dot: 14, fs: 14, gap: 8,  pad: '0 14px' },
+    lg: { h: 56, dot: 20, fs: 18, gap: 12, pad: '0 18px' },
+  };
+  const s = sizes[size];
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag onClick={onClick} className={selected ? 'bag-chip selected' : 'bag-chip'}
+      style={{ height: s.h, padding: s.pad, gap: s.gap, fontSize: s.fs, '--bag': bag.color, '--bag-soft': bag.soft, '--bag-deep': bag.deep, ...style }}>
+      <span className="bag-dot" style={{ width: s.dot, height: s.dot }} />
+      <span className="bag-pct">{bag.pct}</span>
+      {showLabel && bag.label && <span className="bag-label">{bag.label}</span>}
+    </Tag>
+  );
+}
+
+function NowPill({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const fmt = (d) => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const dd = new Date(d); const ddDay = new Date(d); ddDay.setHours(0,0,0,0);
+    const day = ddDay.getTime() === today.getTime() ? 'Today'
+      : ddDay.getTime() === today.getTime() - 86400000 ? 'Yesterday'
+      : dd.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const time = dd.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `${day} · ${time}`;
+  };
+  const toLocalInput = (d) => {
+    const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
+    return x.toISOString().slice(0, 16);
+  };
+  return (
+    <div className="now-pill-wrap">
+      <button className="now-pill" onClick={() => setOpen(!open)}>
+        <span className="now-dot" />
+        <span className="now-text"><strong>Now</strong> · {fmt(value)}</span>
+        <span className="now-edit">{I.edit}</span>
+      </button>
+      {open && (
+        <div className="now-edit-pop">
+          <input type="datetime-local" value={toLocalInput(value)} onChange={e => onChange(new Date(e.target.value))} />
+          <button onClick={() => { onChange(new Date()); setOpen(false); }} className="ghost-btn">Reset to now</button>
+          <button onClick={() => setOpen(false)} className="primary-btn sm">Done</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stepper({ value, onChange, min = 0, max = 999, step = 1, suffix }) {
+  return (
+    <div className="stepper">
+      <button onClick={() => onChange(Math.max(min, value - step))}>{I.minus}</button>
+      <span className="stepper-val">{value}{suffix && <span className="stepper-suffix">{suffix}</span>}</span>
+      <button onClick={() => onChange(Math.min(max, value + step))}>{I.plus}</button>
+    </div>
+  );
+}
+
+// Compact 3-item drum: itemH=44, shows center + 1 above + 1 below
+function DigitWheel({ value, onChange, min = 0, max = 9, pad = 1, itemH = 44 }) {
+  const ref = useRef();
+  const tmr = useRef();
+  const [scrollTop, setScrollTop] = useState((value - min) * itemH);
+  const items = useMemo(() => {
+    const arr = []; for (let i = min; i <= max; i++) arr.push(i); return arr;
+  }, [min, max]);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const target = (value - min) * itemH;
+    if (Math.abs(ref.current.scrollTop - target) > 1) {
+      ref.current.scrollTop = target;
+      setScrollTop(target);
+    }
+  }, [value, min, itemH]);
+
+  const onScroll = () => {
+    if (!ref.current) return;
+    setScrollTop(ref.current.scrollTop);
+    clearTimeout(tmr.current);
+    tmr.current = setTimeout(() => {
+      if (!ref.current) return;
+      const idx = Math.round(ref.current.scrollTop / itemH);
+      const v = Math.max(min, Math.min(max, idx + min));
+      if (v !== value) onChange(v);
+      const target = (v - min) * itemH;
+      if (Math.abs(ref.current.scrollTop - target) > 0.5) ref.current.scrollTop = target;
+    }, 110);
+  };
+
+  const currentIdx = Math.round(scrollTop / itemH);
+  const fmt = (n) => pad > 1 ? String(n).padStart(pad, '0') : String(n);
+
+  return (
+    // 3 items visible: 1 above + center + 1 below = itemH * 3
+    <div className="drum" style={{ height: itemH * 3, width: pad >= 2 ? 78 : 52 }}>
+      <div className="drum-scroll" ref={ref} onScroll={onScroll}>
+        <div style={{ height: itemH, flexShrink: 0 }} />
+        {items.map((n, i) => {
+          const d = Math.abs(i - currentIdx);
+          return (
+            <button key={n} type="button" className="drum-item"
+              style={{ height: itemH, opacity: d === 0 ? 1 : d === 1 ? 0.45 : 0 }}
+              onClick={() => ref.current.scrollTo({ top: i * itemH, behavior: 'smooth' })}>
+              {fmt(n)}
+            </button>
+          );
+        })}
+        <div style={{ height: itemH, flexShrink: 0 }} />
+      </div>
+      <div className="drum-band" />
+      <div className="drum-fade-top" />
+      <div className="drum-fade-bot" />
+    </div>
+  );
+}
+
+function decompose(value, intDigits, decimals = 0) {
+  const m = Math.pow(10, decimals);
+  let v = Math.round(value * m);
+  const total = intDigits + decimals;
+  const arr = new Array(total).fill(0);
+  for (let i = total - 1; i >= 0; i--) { arr[i] = v % 10; v = Math.floor(v / 10); }
+  return arr;
+}
+function compose(arr, decimals = 0) {
+  let v = 0; for (const d of arr) v = v * 10 + d;
+  return v / Math.pow(10, decimals);
+}
+
+function WeightEntry({ value, onChange, accent }) {
+  const [ones, tenth] = decompose(value, 1, 1);
+  const set = (i, v) => { const arr = decompose(value, 1, 1); arr[i] = v; onChange(compose(arr, 1)); };
+  return (
+    <div className="drum-wrap" style={accent ? { '--drum-accent': accent } : undefined}>
+      <div className="drum-picker">
+        <DigitWheel value={ones}  min={0} max={9} onChange={v => set(0, v)} />
+        <span className="drum-sep">.</span>
+        <DigitWheel value={tenth} min={0} max={9} onChange={v => set(1, v)} />
+        <span className="drum-unit">kg</span>
+      </div>
+    </div>
+  );
+}
+
+function BodyWeightEntry({ value, onChange }) {
+  const [h, t, o, dec] = decompose(value, 3, 1);
+  const set = (i, v) => { const arr = decompose(value, 3, 1); arr[i] = v; onChange(compose(arr, 1)); };
+  return (
+    <div className="drum-wrap">
+      <div className="drum-picker">
+        <DigitWheel value={h}   min={0} max={2} onChange={v => set(0, v)} />
+        <DigitWheel value={t}   min={0} max={9} onChange={v => set(1, v)} />
+        <DigitWheel value={o}   min={0} max={9} onChange={v => set(2, v)} />
+        <span className="drum-sep">.</span>
+        <DigitWheel value={dec} min={0} max={9} onChange={v => set(3, v)} />
+        <span className="drum-unit">kg</span>
+      </div>
+    </div>
+  );
+}
+
+function BPEntry({ sys, dia, onSys, onDia, accent }) {
+  const [sh, st, so] = decompose(sys, 3, 0);
+  const [dh, dt, doo] = decompose(dia, 3, 0);
+  const setSys = (i, v) => { const a = decompose(sys, 3, 0); a[i] = v; onSys(compose(a, 0)); };
+  const setDia = (i, v) => { const a = decompose(dia, 3, 0); a[i] = v; onDia(compose(a, 0)); };
+  return (
+    <div className="drum-wrap bp-drum" style={accent ? { '--drum-accent': accent } : undefined}>
+      <div className="drum-picker">
+        <DigitWheel value={sh}  min={0} max={2} onChange={v => setSys(0, v)} />
+        <DigitWheel value={st}  min={0} max={9} onChange={v => setSys(1, v)} />
+        <DigitWheel value={so}  min={0} max={9} onChange={v => setSys(2, v)} />
+      </div>
+      <span className="drum-slash">/</span>
+      <div className="drum-picker">
+        <DigitWheel value={dh}  min={0} max={1} onChange={v => setDia(0, v)} />
+        <DigitWheel value={dt}  min={0} max={9} onChange={v => setDia(1, v)} />
+        <DigitWheel value={doo} min={0} max={9} onChange={v => setDia(2, v)} />
+        <span className="drum-unit">mmHg</span>
+      </div>
+    </div>
+  );
+}
+
+window.PD = { BAGS, BAG_LIST, I, BagChip, NowPill, Stepper, DigitWheel, WeightEntry, BodyWeightEntry, BPEntry };
+</script>
+
+<!-- ── pd-dashboard.jsx ────────────────────────────────────── -->
+<script type="text/babel" data-presets="env,react">
+function Card({ title, subtitle, action, children, className = '' }) {
+  return (
+    <section className={'card ' + className}>
+      {(title || action) && (
+        <header className="card-head">
+          <div>
+            {title && <h2 className="card-title">{title}</h2>}
+            {subtitle && <p className="card-sub">{subtitle}</p>}
+          </div>
+          {action}
+        </header>
+      )}
+      {children}
+    </section>
+  );
+}
+
+function PageHead({ title, subtitle, right }) {
+  return (
+    <div className="page-head">
+      <div>
+        {title && <h1 className="page-title">{title}</h1>}
+        {subtitle && <div className="page-sub">{subtitle}</div>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function Sparkline({ data, min, max, w = 160, h = 44 }) {
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * (w - 8) + 4;
+    const y = h - 6 - ((v - min) / (max - min)) * (h - 12);
+    return [x, y];
+  });
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="sparkline">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map((p, i) => i === pts.length - 1 && <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="currentColor" />)}
+    </svg>
+  );
+}
+
+function timeAgo(at) {
+  const diff = (Date.now() - new Date(at).getTime()) / 60000;
+  if (diff < 1) return 'just now';
+  if (diff < 60) return Math.round(diff) + ' min ago';
+  if (diff < 60 * 24) return Math.round(diff / 60) + ' h ago';
+  return Math.round(diff / 1440) + ' d ago';
+}
+function avg(arr) { return Math.round(arr.reduce((a,b)=>a+b,0) / arr.length); }
+
+function Dashboard({ state, go }) {
+  const { bags, supplies, vitals, weight, log } = state;
+  const lowest = Math.min(bags.low, bags.med, bags.high);
+  const totalBags = bags.low + bags.med + bags.high;
+  const lastWeight = weight[weight.length - 1];
+  const lastBP = vitals[vitals.length - 1];
+  const wMin = Math.min(...weight.map(w => w.kg)) - 0.5;
+  const wMax = Math.max(...weight.map(w => w.kg)) + 0.5;
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+  return (
+    <div className="page">
+      {/* No greeting — just date + quick log */}
+      <PageHead subtitle={today} right={
+        <button className="quick-log" onClick={() => go('log')}>
+          {I.plus}<span>Quick log</span>
+        </button>
+      }/>
+
+      <Card
+        title="Solution bags"
+        subtitle={lowest < 5 ? `${lowest} ${lowest === 1 ? 'bag' : 'bags'} running low` : `${totalBags} total in stock`}
+        action={<button className="link" onClick={() => go('inventory')}>Manage →</button>}
+      >
+        <div className="bag-hero-grid">
+          {BAG_LIST.map(b => {
+            const count = bags[b.id];
+            const low = count < 5;
+            return (
+              <div key={b.id} className={'bag-hero' + (low ? ' low' : '')} style={{ '--bag': b.color, '--bag-soft': b.soft, '--bag-deep': b.deep }}>
+                <div className="bag-hero-top">
+                  <span className="bag-dot lg" />
+                  <span className="bag-hero-pct">{b.pct}</span>
+                </div>
+                <div className="bag-hero-right">
+                  <div className="bag-hero-count">{count}</div>
+                  <div className="bag-hero-label">
+                    {low
+                      ? <span className="low-tag">{I.warn} low</span>
+                      : <span className="bag-hero-stock">bags</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card title="Supplies">
+        <div className="supplies-grid">
+          {Object.entries(supplies).map(([k, v]) => {
+            const lbl = { caps:'Caps', gauze:'Gauze pads', salt:'Salt water', ointment:'Antibiotic', big:'Big bandage', small:'Small bandage' }[k];
+            const warn = { caps:10, gauze:10, salt:2, ointment:1, big:5, small:5 }[k];
+            const low = v < warn;
+            return (
+              <div key={k} className={'supply' + (low ? ' low' : '')}>
+                <div className="supply-label">{lbl}</div>
+                <div className="supply-val">{v}{low && <span className="warn-icon">{I.warn}</span>}</div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <div className="two-col">
+        <Card title="Latest vitals" action={<button className="link" onClick={() => go('log')}>Log →</button>}>
+          <div className="vitals-stack">
+            <div className="vitals-row big">
+              <span className="vitals-label">Blood pressure</span>
+              <span className="vitals-val">{lastBP.sys}<span className="slash">/</span>{lastBP.dia}<span className="unit"> mmHg</span></span>
+            </div>
+            <div className="vitals-meta">{timeAgo(lastBP.at)} · avg <strong>{avg(vitals.slice(-9).map(v=>v.sys))}/{avg(vitals.slice(-9).map(v=>v.dia))}</strong></div>
+          </div>
+        </Card>
+
+        <Card title="Weight" action={<button className="link" onClick={() => go('log')}>Log →</button>}>
+          <div className="weight-summary">
+            <div className="weight-now">{lastWeight.kg.toFixed(1)}<span className="unit">kg</span></div>
+            <Sparkline data={weight.map(w=>w.kg)} min={wMin} max={wMax} />
+          </div>
+          <div className="vitals-meta">7-day trend · {(weight[weight.length-1].kg - weight[0].kg >= 0 ? '+' : '')}{(weight[weight.length-1].kg - weight[0].kg).toFixed(1)} kg</div>
+        </Card>
+      </div>
+
+      <Card title="Recent exchanges" action={<button className="link">All →</button>}>
+        <ul className="activity">
+          {log.slice(0, 5).map((e, i) => (
+            <li key={i} className="activity-row">
+              <BagChip bag={BAGS[e.bag]} size="sm" />
+              <div className="activity-info">
+                <div className="activity-meta">{timeAgo(e.at)} · drained {e.drained.toFixed(1)} kg</div>
+              </div>
+              <div className="activity-time">{new Date(e.at).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</div>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </div>
+  );
+}
+
+window.PDDash = { Dashboard, Card, PageHead, Sparkline, timeAgo, avg };
+</script>
+
+<!-- ── pd-screens.jsx ──────────────────────────────────────── -->
+<script type="text/babel" data-presets="env,react">
+function LogScreen({ state, setState }) {
+  const [tab, setTab] = useState('drainage');
+  const [when, setWhen] = useState(new Date());
+  const [type, setType] = useState('drain_fill');
+  const [drained, setDrained] = useState(2.1);
+  const [bagIn, setBagIn] = useState('low');
+  const [bagsUsed, setBagsUsed] = useState(1);
+  const [capsUsed, setCapsUsed] = useState(1);
+  const [notes, setNotes] = useState('');
+  // Init weight from latest measurement, fallback to 65
+  const [w, setW] = useState(() => state.weight?.[state.weight.length - 1]?.kg ?? 65);
+  const [sys, setSys] = useState(120);
+  const [dia, setDia] = useState(80);
+
+  const types = [
+    { id: 'drain_fill', label: 'Drain + Fill' },
+    { id: 'drain',      label: 'Drain only' },
+    { id: 'fill',       label: 'Fill only' },
+  ];
+
+  return (
+    <div className="page">
+      <PageHead title="Log" subtitle="Record an exchange or measurement" right={<NowPill value={when} onChange={setWhen} />} />
+
+      <div className="tab-pill">
+        {[
+          { id: 'drainage', label: 'Drainage', icon: I.drop },
+          { id: 'weight',   label: 'Weight',   icon: I.scale },
+          { id: 'bp',       label: 'BP',       icon: I.heart },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} className={'tab-pill-btn' + (tab === t.id ? ' on' : '')}>
+            {t.icon}<span>{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {tab === 'drainage' && (
+        <>
+          <Card title="Exchange type">
+            <div className="seg-row">
+              {types.map(t => (
+                <button key={t.id} onClick={() => setType(t.id)} className={'seg' + (type === t.id ? ' on' : '')}>{t.label}</button>
+              ))}
+            </div>
+          </Card>
+
+          {(type === 'drain_fill' || type === 'drain') && (
+            <Card title="Drained (bag out)" subtitle="Scroll wheels to set weight">
+              <WeightEntry value={drained} onChange={setDrained} accent={BAGS[bagIn].color} />
+            </Card>
+          )}
+
+          {(type === 'drain_fill' || type === 'fill') && (
+            <Card title="New bag going in" subtitle="Tap to select">
+              <div className="bag-pick">
+                {BAG_LIST.map(b => {
+                  const sel = bagIn === b.id;
+                  return (
+                    <button key={b.id} onClick={() => setBagIn(b.id)}
+                      className={'bag-pick-card' + (sel ? ' on' : '')}
+                      style={{ '--bag': b.color, '--bag-soft': b.soft, '--bag-deep': b.deep }}>
+                      <span className="bag-dot lg" />
+                      <span className="bag-pick-pct">{b.pct}</span>
+                      <span className="bag-pick-stock">{state.bags[b.id]} in stock</span>
+                      {sel && <span className="bag-pick-check">{I.check}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          <Card title="Supplies used">
+            <div className="used-row">
+              <div className="used-cell">
+                <Stepper value={bagsUsed} onChange={setBagsUsed} min={0} max={9} />
+                <span className="used-label">bags</span>
+              </div>
+              <div className="used-cell">
+                <Stepper value={capsUsed} onChange={setCapsUsed} min={0} max={9} />
+                <span className="used-label">caps</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="Notes" subtitle="Optional — symptoms, fluid color, etc">
+            <textarea className="notes" placeholder="Anything to remember…" value={notes} onChange={e => setNotes(e.target.value)} />
+          </Card>
+
+          <button className="primary-btn lg sticky">
+            <span className="bag-dot" style={{ background: BAGS[bagIn].color, width: 14, height: 14 }} />
+            Save {types.find(t=>t.id===type).label.toLowerCase()} · <strong>{BAGS[bagIn].pct}</strong>
+          </button>
+        </>
+      )}
+
+      {tab === 'weight' && (
+        <>
+          <Card title="Body weight" subtitle="Empty bladder, no shoes — same time each day">
+            <BodyWeightEntry value={w} onChange={setW} />
+          </Card>
+          <Card title="Notes"><textarea className="notes" placeholder="Optional…" /></Card>
+          <button className="primary-btn lg sticky">Save weight · {w.toFixed(1)} kg</button>
+        </>
+      )}
+
+      {tab === 'bp' && (
+        <>
+          <Card title="Blood pressure">
+            <BPEntry sys={sys} dia={dia} onSys={setSys} onDia={setDia} />
+            <div className={'bp-status ' + bpStatus(sys, dia).cls}>
+              <span className="bp-status-dot" />
+              {bpStatus(sys, dia).label}
+            </div>
+          </Card>
+          <Card title="Notes"><textarea className="notes" placeholder="Optional…" /></Card>
+          <button className="primary-btn lg sticky">Save BP · {sys}/{dia}</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function bpStatus(s, d) {
+  if (s < 90 || d < 60)  return { cls: 'warn', label: 'Lower than usual range' };
+  if (s > 140 || d > 90) return { cls: 'warn', label: 'Higher than usual range' };
+  if (s > 130 || d > 85) return { cls: 'mid',  label: 'Slightly elevated' };
+  return { cls: 'ok', label: 'Within healthy range' };
+}
+
+function InventoryScreen({ state, setState }) {
+  const setBag = (id, v) => setState(s => ({ ...s, bags: { ...s.bags, [id]: Math.max(0, v) } }));
+  const setSup = (id, v) => setState(s => ({ ...s, supplies: { ...s.supplies, [id]: Math.max(0, v) } }));
+
+  const supplyMeta = [
+    { id: 'caps',     label: 'Caps',                warn: 10, hint: 'Disinfecting caps' },
+    { id: 'gauze',    label: 'Gauze pads',           warn: 10, hint: 'Sterile dressings' },
+    { id: 'salt',     label: 'Salt water',           warn: 2,  hint: 'For exit site' },
+    { id: 'ointment', label: 'Antibiotic ointment',  warn: 1,  hint: 'Mupirocin' },
+    { id: 'big',      label: 'Big bandage',          warn: 5 },
+    { id: 'small',    label: 'Small bandage',        warn: 5 },
+  ];
+
+  return (
+    <div className="page">
+      <PageHead title="Inventory" subtitle="Adjust counts as you use or restock" />
+
+      <Card title="Solution bags" subtitle="Tap +/− to adjust">
+        <div className="inv-bag-list">
+          {BAG_LIST.map(b => {
+            const v = state.bags[b.id];
+            const low = v < 5;
+            return (
+              <div key={b.id} className={'inv-bag' + (low ? ' low' : '')} style={{ '--bag': b.color, '--bag-soft': b.soft, '--bag-deep': b.deep }}>
+                <div className="inv-bag-left">
+                  <span className="bag-dot lg" />
+                  <div>
+                    <div className="inv-bag-pct">{b.pct}</div>
+                    <div className="inv-bag-hint">Warn below 5</div>
+                  </div>
+                </div>
+                <Stepper value={v} onChange={x => setBag(b.id, x)} max={199} />
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card title="Other supplies">
+        <ul className="inv-list">
+          {supplyMeta.map(m => {
+            const v = state.supplies[m.id];
+            const low = v < m.warn;
+            return (
+              <li key={m.id} className={'inv-row' + (low ? ' low' : '')}>
+                <div className="inv-row-info">
+                  <div className="inv-row-label">{m.label}{low && <span className="low-tag">{I.warn} low</span>}</div>
+                  {m.hint && <div className="inv-row-hint">{m.hint} · warn below {m.warn}</div>}
+                </div>
+                <Stepper value={v} onChange={x => setSup(m.id, x)} max={199} />
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+
+      <button className="primary-btn lg sticky">Save inventory</button>
+    </div>
+  );
+}
+
+function PrepScreen() {
+  const items = ['Blue mask','2 caps','Paper towel','Alcohol wipes','Hand sanitizer','Blue clamps','Solution bag'];
+  const steps = [
+    'Wash hands thoroughly with soap.',
+    'Wipe the cart down with an alcohol wipe.',
+    'Lay out all supplies on the cart.',
+    'Verify the bag — correct concentration, color, volume and expiry date.',
+    'Put on the mask.',
+    'Place a paper towel under the catheter.',
+    'Wipe the connector tip with an alcohol wipe.',
+    'Sanitize hands with gel.',
+    'Hold the connector securely — by the blue section only — with the tip pointed down.',
+    'Open the new bag cap and connect.',
+    'Drain, then fill, then disconnect and cap off.',
+    'Weigh the drained bag and log the exchange.',
+  ];
+  return (
+    <div className="page">
+      <PageHead title="Prep" subtitle="Reference card for the exchange procedure" />
+      <Card title="What to prepare">
+        <ul className="prep-items">
+          {items.map(it => <li key={it} className="prep-item"><span className="prep-dot" /><span>{it}</span></li>)}
+        </ul>
+      </Card>
+      <Card title="Procedure">
+        <ol className="steps">
+          {steps.map((s, i) => (
+            <li key={i} className="step">
+              <span className="step-num">{i + 1}</span>
+              <span className="step-text">{s}</span>
+            </li>
+          ))}
+        </ol>
+      </Card>
+    </div>
+  );
+}
+
+const HIST_PRESETS_MK = [
+  { label: '1W', days: 7  },
+  { label: '1M', days: 30 },
+  { label: '3M', days: 90 },
+];
+
+function mkTodayStr() { return new Date().toLocaleDateString('en-CA'); }
+function mkDaysAgoStr(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toLocaleDateString('en-CA'); }
+
+function HistoryScreen({ state }) {
+  const [from, setFrom] = useState(() => mkDaysAgoStr(7));
+  const [to,   setTo  ] = useState(() => mkTodayStr());
+
+  const today = mkTodayStr();
+  const activePreset = HIST_PRESETS_MK.find(p => from === mkDaysAgoStr(p.days) && to === today) || null;
+
+  const fromMs  = new Date(from + 'T00:00:00').getTime();
+  const toMs    = new Date(to   + 'T23:59:59').getTime();
+  const exchanges = (state.exchanges || []).filter(e => e.at >= fromMs && e.at <= toMs);
+
+  const groups = {};
+  [...exchanges].sort((a,b) => b.at - a.at).forEach(e => {
+    const key = new Date(e.at).toLocaleDateString('en-CA');
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  });
+
+  const typeLabels = { drain_fill: 'Drain & Fill', drain: 'Drain only', fill: 'Fill only' };
+
+  const applyPreset = (days) => {
+    setFrom(mkDaysAgoStr(days));
+    setTo(mkTodayStr());
+  };
+
+  return (
+    <div className="page">
+      <PageHead title="History" subtitle="Exchange log" />
+
+      <div className="hist-filter">
+        <div className="chip-row">
+          {HIST_PRESETS_MK.map(p => (
+            <button key={p.days}
+              className={'chip' + (activePreset?.days === p.days ? ' active' : '')}
+              onClick={() => applyPreset(p.days)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="hist-daterange">
+          <div className="hist-daterange-field">
+            <label className="hist-daterange-label">From</label>
+            <input type="date" className="hist-date-input" value={from} max={today}
+                   onChange={e => setFrom(e.target.value)} />
+          </div>
+          <span className="hist-daterange-sep">→</span>
+          <div className="hist-daterange-field">
+            <label className="hist-daterange-label">To</label>
+            <input type="date" className="hist-date-input" value={to} max={today}
+                   onChange={e => setTo(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      {!exchanges.length && <p className="no-data">No exchanges in this period.</p>}
+
+      {Object.keys(groups).sort((a,b) => b.localeCompare(a)).map(key => {
+        const d     = new Date(key + 'T00:00:00');
+        const label = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        return (
+          <div key={key} className="hist-group">
+            <div className="hist-date-hdr">{label}</div>
+            {groups[key].map((e, i) => {
+              const time   = new Date(e.at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+              const detail = e.type !== 'fill' && e.bagWeight != null
+                ? (e.bagType ? e.bagType + ' · ' : '') + e.bagWeight.toFixed(1) + ' kg drained'
+                : (e.bagType || '');
+              return (
+                <div key={i} className="hist-row">
+                  <div className="hist-row-top">
+                    <span className="hist-time">{time}</span>
+                    <span className={'hist-chip hist-chip-' + e.type}>{typeLabels[e.type] || e.type}</span>
+                  </div>
+                  {detail && <div className="hist-detail">{detail}</div>}
+                  {e.notes && <div className="hist-notes">{e.notes}</div>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+window.PDScreens = { LogScreen, InventoryScreen, PrepScreen, HistoryScreen };
+</script>
+
+<!-- ── pd-shell.jsx ────────────────────────────────────────── -->
+<script type="text/babel" data-presets="env,react">
+const TABS = [
+  { id: 'dashboard', label: 'Dashboard', icon: I.home },
+  { id: 'log',       label: 'Log',       icon: I.log  },
+  { id: 'inventory', label: 'Inventory', icon: I.box  },
+  { id: 'history',   label: 'History',   icon: I.hist },
+  { id: 'prep',      label: 'Prep',      icon: I.prep },
+];
+
+function makeSeed() {
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  return {
+    bags: { low: 54, med: 17, high: 4 },
+    supplies: { caps: 45, gauze: 60, salt: 60, ointment: 3, big: 20, small: 10 },
+    vitals: Array.from({ length: 9 }, (_, i) => ({
+      sys: 118 + (i % 3) * 4, dia: 76 + (i % 3) * 3,
+      at: now - (9 - i) * 6 * 60 * 60 * 1000,
+    })),
+    weight: Array.from({ length: 7 }, (_, i) => ({
+      kg: 64.8 + Math.sin(i * 0.8) * 0.6 + i * 0.05,
+      at: now - (6 - i) * day,
+    })),
+    log: [
+      { bag: 'low',  drained: 2.3, at: now - 2  * 60 * 60 * 1000 },
+      { bag: 'med',  drained: 2.1, at: now - 8  * 60 * 60 * 1000 },
+      { bag: 'low',  drained: 2.2, at: now - 14 * 60 * 60 * 1000 },
+      { bag: 'high', drained: 2.4, at: now - 20 * 60 * 60 * 1000 },
+      { bag: 'low',  drained: 2.0, at: now - 26 * 60 * 60 * 1000 },
+    ],
+    exchanges: [
+      { type: 'drain_fill', bagType: '1.36%', bagWeight: 2.3, notes: '',                              at: now - 2   * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '2.27%', bagWeight: 2.1, notes: '',                              at: now - 8   * 60 * 60 * 1000 },
+      { type: 'drain',      bagType: '',      bagWeight: 1.9, notes: 'Drain only, felt bloated',      at: now - 14  * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '1.36%', bagWeight: 2.4, notes: '',                              at: now - 26  * 60 * 60 * 1000 },
+      { type: 'fill',       bagType: 'Extraneal', bagWeight: null, notes: 'Long dwell bag',           at: now - 34  * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '2.27%', bagWeight: 2.0, notes: '',                              at: now - 50  * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '1.36%', bagWeight: 2.2, notes: '',                              at: now - 58  * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '1.36%', bagWeight: 2.5, notes: 'Fluid looked clear',            at: now - 74  * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '2.27%', bagWeight: 2.1, notes: '',                              at: now - 82  * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '1.36%', bagWeight: 2.3, notes: '',                              at: now - 98  * 60 * 60 * 1000 },
+      { type: 'drain',      bagType: '',      bagWeight: 2.0, notes: '',                              at: now - 106 * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '1.36%', bagWeight: 2.4, notes: '',                              at: now - 122 * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: 'Extraneal', bagWeight: 2.2, notes: '',                          at: now - 130 * 60 * 60 * 1000 },
+      { type: 'drain_fill', bagType: '2.27%', bagWeight: 2.1, notes: 'Some cloudiness, noted',        at: now - 146 * 60 * 60 * 1000 },
+    ],
+  };
+}
+
+function PDApp({ frame = 'phone' }) {
+  const [tab, setTab] = useState('dashboard');
+  const [state, setState] = useState(makeSeed);
+  const { Dashboard } = window.PDDash;
+  const { LogScreen, InventoryScreen, PrepScreen, HistoryScreen } = window.PDScreens;
+
+  return (
+    <div className={'pd-root pd-frame-' + frame} data-tab={tab}>
+      {/* brand hidden via CSS .brand { display: none } */}
+      <header className="topbar">
+        <div className="brand" />
+        <nav className="topnav">
+          {TABS.map(t => (
+            <button key={t.id} className={'topnav-btn' + (tab === t.id ? ' on' : '')} onClick={() => setTab(t.id)}>
+              {t.icon}<span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="topbar-right">
+          <button className="icon-btn"><span className="avatar">Y</span></button>
+        </div>
+      </header>
+
+      <main className="content">
+        {tab === 'dashboard' && <Dashboard state={state} go={setTab} />}
+        {tab === 'log'       && <LogScreen state={state} setState={setState} />}
+        {tab === 'inventory' && <InventoryScreen state={state} setState={setState} />}
+        {tab === 'history'   && <HistoryScreen state={state} />}
+        {tab === 'prep'      && <PrepScreen />}
+      </main>
+
+      <nav className="botnav">
+        {TABS.map(t => (
+          <button key={t.id} className={'botnav-btn' + (tab === t.id ? ' on' : '')} onClick={() => setTab(t.id)}>
+            {t.icon}<span>{t.label}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+window.PDApp = PDApp;
+</script>
+
+<!-- ── Preview shell ───────────────────────────────────────── -->
+<script type="text/babel" data-presets="env,react">
+const StatusIcons = () => (
+  <span style={{ display: 'flex', gap: 4, alignItems: 'center', color: 'inherit' }}>
+    <svg viewBox="0 0 16 12" fill="currentColor" width="14" height="12">
+      <rect x="0" y="8" width="3" height="4" rx="0.5"/>
+      <rect x="4" y="5" width="3" height="7" rx="0.5"/>
+      <rect x="8" y="2" width="3" height="10" rx="0.5"/>
+      <rect x="12" y="0" width="3" height="12" rx="0.5"/>
+    </svg>
+    <svg viewBox="0 0 16 12" fill="currentColor" width="14" height="12">
+      <path d="M8 2.5c2.2 0 4.2.8 5.8 2.2l1.2-1.4C13.1 1.6 10.7.5 8 .5S2.9 1.6 1 3.3l1.2 1.4C3.8 3.3 5.8 2.5 8 2.5zm0 3c1.4 0 2.7.5 3.7 1.4l1.2-1.4c-1.3-1.2-3-2-4.9-2s-3.6.8-4.9 2l1.2 1.4C5.3 6 6.6 5.5 8 5.5zm0 3c.7 0 1.3.2 1.8.7l1.2-1.4c-.8-.7-1.9-1.3-3-1.3s-2.2.6-3 1.3l1.2 1.4c.5-.5 1.1-.7 1.8-.7z"/>
+    </svg>
+    <svg viewBox="0 0 24 12" fill="none" width="18" height="12">
+      <rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="currentColor"/>
+      <rect x="2" y="2" width="13" height="8" rx="1" fill="currentColor"/>
+      <rect x="21" y="3" width="2" height="6" rx="1" fill="currentColor" opacity="0.6"/>
+    </svg>
+  </span>
+);
+
+function App() {
+  const [theme, setTheme] = useState('light');
+
+  useEffect(() => {
+    document.body.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const PDA = window.PDApp;
+
+  return (
+    <>
+      <div className="preview-bar">
+        <span className="preview-label">PD Tracking — Responsive Preview</span>
+        <button className="theme-btn" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}>
+          {theme === 'light' ? '🌙 Dark mode' : '☀️ Light mode'}
+        </button>
+      </div>
+
+      <div className="devices-row">
+
+        {/* ── Phone: Galaxy S25 ── */}
+        <div className="device-col">
+          <span className="device-label">Galaxy S25 · 384px</span>
+          <div className="phone-frame">
+            <div className="phone-inner">
+              <div className="pf-status">
+                <span>9:41</span><StatusIcons />
+              </div>
+              <div className="pf-app"><PDA frame="phone" /></div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Tablet: iPad ── */}
+        <div className="device-col">
+          <span className="device-label">iPad · 820px</span>
+          <div className="tablet-outer">
+            <div className="tablet-scaler">
+              <div className="tablet-frame">
+                <div className="tablet-inner">
+                  <div className="pf-status">
+                    <span>9:41</span><StatusIcons />
+                  </div>
+                  <div className="pf-app"><PDA frame="tablet" /></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Desktop ── */}
+        <div className="device-col">
+          <span className="device-label">Desktop · 1280px</span>
+          <div className="desktop-outer">
+            <div className="desktop-scaler">
+              <div className="desktop-frame">
+                <div className="b-bar">
+                  <span className="b-dot r"/><span className="b-dot y"/><span className="b-dot g"/>
+                  <span className="b-url">🔒 pd.daily</span>
+                </div>
+                <div className="pf-app"><PDA frame="desktop" /></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

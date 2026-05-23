@@ -2,73 +2,80 @@
 // Medical Tracking Platform — Google Apps Script Backend
 // ============================================================
 
-var SHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
+// Cached within a single request execution; GAS resets globals between requests.
+var _ss = null;
+function ss() {
+  if (!_ss) _ss = SpreadsheetApp.getActiveSpreadsheet();
+  return _ss;
+}
 
 var TAB = {
   MEASUREMENTS: 'Daily_Measurements',
   INVENTORY:    'Inventory',
-  DASHBOARD:    'Dashboard',
-  CONFIG:       'Config'
+  CONFIG:       'Config',
+  TOKENS:       'Tokens'
 };
 
 var HEADERS = {
   Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type'],
-  Inventory:          ['Date', 'Item Name', 'Count'],
-  Dashboard:          ['Metric', 'Value', 'Status'],
-  Config:             ['Category', 'Key', 'Value', 'Description']
+  Inventory:          ['DateTime', 'Item Name', 'Count'],
+  Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName'],
+  Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used']
 };
 
-// Default config written by setupSheet() if Config tab is empty
+// Default config written by setupSheet() if Config tab is empty.
+// Columns: Category | Key/Name | Value/Min | Description | isBag | active | color | displayName
 var CONFIG_DEFAULTS = [
-  // Inventory — names for Solution Bags and Caps must stay as-is (code deducts by exact name)
-  ['inventory', 'Solution Bags 1.36%',  '5',  'שקית צהובה. בדוק תוקף לפני שימוש.'],
-  ['inventory', 'Solution Bags 2.27%',  '5',  'שקית ירוקה. בדוק תוקף לפני שימוש.'],
-  ['inventory', 'Solution Bags 3.86%',  '5',  'שקית ורודה. בדוק תוקף לפני שימוש.'],
-  ['inventory', 'Caps',                 '10', 'שני פקקים לכל החלפה.'],
-  ['inventory', 'Gauze Pads',           '10', ''],
-  ['inventory', 'Salt Water',           '2',  ''],
-  ['inventory', 'Antibiotic Ointment',  '1',  'נספר בשפופרות. שפופרת מחזיקה כ-2–3 שבועות. הזמן מחדש כשנשארת שפופרת אחרונה.'],
-  ['inventory', 'Big Bandage',          '5',  ''],
-  ['inventory', 'Small Bandage',        '5',  ''],
-  // Prep checklist
-  ['prep_items', '1', 'מסכה כחולה',       ''],
-  ['prep_items', '2', '2 פקקים',           ''],
-  ['prep_items', '3', 'נייר מגבת',         ''],
-  ['prep_items', '4', 'מגבוני אלכוהול',   ''],
-  ['prep_items', '5', 'אלכוג\'ל',          ''],
-  ['prep_items', '6', 'קלאמפים כחולים',   ''],
-  ['prep_items', '7', 'שקית תמיסה',       'בדוק ריכוז, צבע, תקינות ותוקף.'],
-  // Procedure steps
-  ['prep_steps', '1',  'לשטוף ידיים',                                                                             ''],
-  ['prep_steps', '2',  'לנקות את העגלה עם מגבון אלכוהול',                                                        ''],
-  ['prep_steps', '3',  'להכין דברים על העגלה',                                                                    ''],
-  ['prep_steps', '4',  'לוודא את תקינות, צבע, ריכוז ותוקף השקית',                                                ''],
-  ['prep_steps', '5',  'לשים מסכה',                                                                               ''],
-  ['prep_steps', '6',  'לשים נייר מגבת על הרגל',                                                                 ''],
-  ['prep_steps', '7',  'לנקות את הצינור של הפורט עם מגבון אלכוהול',                                             ''],
-  ['prep_steps', '8',  'לחטא ידיים עם אלכוג\'ל',                                                                  ''],
-  ['prep_steps', '9',  'לאחוז בבטחה בפורט (בחלק התכלת בלבד) ובקצה הצינור בשקית (מתחת לעיגול)',                ''],
-  ['prep_steps', '10', 'לפתוח את הפקק של השקית ולזרוק',                                                         ''],
-  ['prep_steps', '11', 'לפתוח את הפקק של הפורט ולזרוק',                                                         ''],
-  ['prep_steps', '12', 'לחבר בצורה בטוחה וזהירה',                                                                ''],
-  ['prep_steps', '13', 'לקשור מגבון אלכוהול על החיבור',                                                          ''],
-  ['prep_steps', '14', 'לפתוח את ההברגה הלבנה כדי להתחיל ניקוז',                                                ''],
-  ['prep_steps', '15', 'להמתין עד סוף הניקוז',                                                                    ''],
-  ['prep_steps', '16', 'לסגור את ההברגה ולשים קלאמפ לכיוון הניקוז',                                             ''],
-  ['prep_steps', '17', 'לשבור את החסם הירוק לשני הצדדים',                                                        ''],
-  ['prep_steps', '18', 'לפתוח את ההברגה כדי להתחיל מילוי',                                                       ''],
-  ['prep_steps', '19', 'להמתין עד סוף המילוי',                                                                    ''],
-  ['prep_steps', '20', 'לסגור את ההברגה ולשים קלאמפ לכיוון המילוי',                                              ''],
-  ['prep_steps', '21', 'לשים מסכה',                                                                               ''],
-  ['prep_steps', '22', 'לחטא ידיים עם אלכוג\'ל',                                                                  ''],
-  ['prep_steps', '23', 'להוריד את מגבון האלכוהול מהחיבור',                                                       ''],
-  ['prep_steps', '24', 'לפתוח פקק אחד',                                                                           ''],
-  ['prep_steps', '25', 'לחטא שוב ידיים עם אלכוג\'ל',                                                             ''],
-  ['prep_steps', '26', 'לאחוז בחיבור, להבריג החוצה בזהירות ולשחרר את הצינור של השקית',                         ''],
-  ['prep_steps', '27', 'לקחת את הפקק הפתוח ולהבריג בבטחה על הפורט',                                             ''],
-  ['prep_steps', '28', 'ניקוי ואיסוף זבל',                                                                        ''],
-  ['prep_steps', '29', 'שקילה של השקית בלי לשקול את הצינור',                                                     ''],
-  ['prep_steps', '30', 'ריקון של השקית וזריקה לזבל',                                                             '']
+  // Inventory bags — isBag=true, active=true, color, displayName
+  ['inventory', 'Solution Bags 1.36%',     '5',  'שקית צהובה. בדוק תוקף לפני שימוש.',                              true, true, '#E8A317', '1.36%'    ],
+  ['inventory', 'Solution Bags 2.27%',     '5',  'שקית ירוקה. בדוק תוקף לפני שימוש.',                              true, true, '#2BA15A', '2.27%'    ],
+  ['inventory', 'Solution Bags Extraneal', '5',  'Extraneal 7.5% icodextrin. שקית ורודה. בדוק תוקף לפני שימוש.', true, true, '#D6347B', 'Extraneal'],
+  // Inventory supplies — isBag=false, active=true
+  ['inventory', 'Caps',                    '10', 'שני פקקים לכל החלפה.',                                            false, true, '', ''],
+  ['inventory', 'Gauze Pads',              '10', '',                                                                  false, true, '', ''],
+  ['inventory', 'Salt Water',              '2',  '',                                                                  false, true, '', ''],
+  ['inventory', 'Antibiotic Ointment',     '1',  'נספר בשפופרות. שפופרת מחזיקה כ-2–3 שבועות. הזמן מחדש כשנשארת שפופרת אחרונה.', false, true, '', ''],
+  ['inventory', 'Big Bandage',             '5',  '',                                                                  false, true, '', ''],
+  ['inventory', 'Small Bandage',           '5',  '',                                                                  false, true, '', ''],
+  // Prep checklist (columns E-H unused — leave empty)
+  ['prep_items', '1', 'מסכה כחולה',       '', '', '', '', ''],
+  ['prep_items', '2', '2 פקקים',           '', '', '', '', ''],
+  ['prep_items', '3', 'נייר מגבת',         '', '', '', '', ''],
+  ['prep_items', '4', 'מגבוני אלכוהול',   '', '', '', '', ''],
+  ['prep_items', '5', 'אלכוג\'ל',          '', '', '', '', ''],
+  ['prep_items', '6', 'קלאמפים כחולים',   '', '', '', '', ''],
+  ['prep_items', '7', 'שקית תמיסה',       'בדוק ריכוז, צבע, תקינות ותוקף.', '', '', '', ''],
+  // Procedure steps (columns E-H unused — leave empty)
+  ['prep_steps', '1',  'לשטוף ידיים',                                                                             '', '', '', '', ''],
+  ['prep_steps', '2',  'לנקות את העגלה עם מגבון אלכוהול',                                                        '', '', '', '', ''],
+  ['prep_steps', '3',  'להכין דברים על העגלה',                                                                    '', '', '', '', ''],
+  ['prep_steps', '4',  'לוודא את תקינות, צבע, ריכוז ותוקף השקית',                                                '', '', '', '', ''],
+  ['prep_steps', '5',  'לשים מסכה',                                                                               '', '', '', '', ''],
+  ['prep_steps', '6',  'לשים נייר מגבת על הרגל',                                                                 '', '', '', '', ''],
+  ['prep_steps', '7',  'לנקות את הצינור של הפורט עם מגבון אלכוהול',                                             '', '', '', '', ''],
+  ['prep_steps', '8',  'לחטא ידיים עם אלכוג\'ל',                                                                  '', '', '', '', ''],
+  ['prep_steps', '9',  'לאחוז בבטחה בפורט (בחלק התכלת בלבד) ובקצה הצינור בשקית (מתחת לעיגול)',                '', '', '', '', ''],
+  ['prep_steps', '10', 'לפתוח את הפקק של השקית ולזרוק',                                                         '', '', '', '', ''],
+  ['prep_steps', '11', 'לפתוח את הפקק של הפורט ולזרוק',                                                         '', '', '', '', ''],
+  ['prep_steps', '12', 'לחבר בצורה בטוחה וזהירה',                                                                '', '', '', '', ''],
+  ['prep_steps', '13', 'לקשור מגבון אלכוהול על החיבור',                                                          '', '', '', '', ''],
+  ['prep_steps', '14', 'לפתוח את ההברגה הלבנה כדי להתחיל ניקוז',                                                '', '', '', '', ''],
+  ['prep_steps', '15', 'להמתין עד סוף הניקוז',                                                                    '', '', '', '', ''],
+  ['prep_steps', '16', 'לסגור את ההברגה ולשים קלאמפ לכיוון הניקוז',                                             '', '', '', '', ''],
+  ['prep_steps', '17', 'לשבור את החסם הירוק לשני הצדדים',                                                        '', '', '', '', ''],
+  ['prep_steps', '18', 'לפתוח את ההברגה כדי להתחיל מילוי',                                                       '', '', '', '', ''],
+  ['prep_steps', '19', 'להמתין עד סוף המילוי',                                                                    '', '', '', '', ''],
+  ['prep_steps', '20', 'לסגור את ההברגה ולשים קלאמפ לכיוון המילוי',                                              '', '', '', '', ''],
+  ['prep_steps', '21', 'לשים מסכה',                                                                               '', '', '', '', ''],
+  ['prep_steps', '22', 'לחטא ידיים עם אלכוג\'ל',                                                                  '', '', '', '', ''],
+  ['prep_steps', '23', 'להוריד את מגבון האלכוהול מהחיבור',                                                       '', '', '', '', ''],
+  ['prep_steps', '24', 'לפתוח פקק אחד',                                                                           '', '', '', '', ''],
+  ['prep_steps', '25', 'לחטא שוב ידיים עם אלכוג\'ל',                                                             '', '', '', '', ''],
+  ['prep_steps', '26', 'לאחוז בחיבור, להבריג החוצה בזהירות ולשחרר את הצינור של השקית',                         '', '', '', '', ''],
+  ['prep_steps', '27', 'לקחת את הפקק הפתוח ולהבריג בבטחה על הפורט',                                             '', '', '', '', ''],
+  ['prep_steps', '28', 'ניקוי ואיסוף זבל',                                                                        '', '', '', '', ''],
+  ['prep_steps', '29', 'שקילה של השקית בלי לשקול את הצינור',                                                     '', '', '', '', ''],
+  ['prep_steps', '30', 'ריקון של השקית וזריקה לזבל',                                                             '', '', '', '', '']
 ];
 
 // ============================================================
@@ -78,9 +85,14 @@ var CONFIG_DEFAULTS = [
 function doGet(e) {
   var action = e.parameter.action;
   try {
+    // Public actions — no approved token required
+    if (action === 'validateToken') return jsonResponse(validateToken(e.parameter.token));
+    if (action === 'registerToken') return jsonResponse(registerToken(e.parameter.token, e.parameter.label));
+    if (action === 'touchToken')    return jsonResponse(touchToken(e.parameter.token));
+    // Protected actions
     checkToken(e.parameter.token);
     if (action === 'getDashboard') return jsonResponse(getDashboard());
-    if (action === 'getHistory')   return jsonResponse(getHistory(e.parameter.n || 7));
+    if (action === 'getHistory')   return jsonResponse(getHistory(e.parameter.from, e.parameter.to));
     if (action === 'getConfig')    return jsonResponse(getConfig());
     return jsonResponse({ error: 'Unknown GET action: ' + action });
   } catch (err) {
@@ -127,26 +139,12 @@ function logMeasurement(data) {
 }
 
 function updateInventory(data) {
-  var sheet = getSheet(TAB.INVENTORY);
-  var date  = data.date || '';
-  var items = data.items || [];
-
-  if (data.mode === 'delta') {
-    // Read current counts (last write per item wins)
-    var current = {};
-    if (sheet.getLastRow() > 1) {
-      var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
-      rows.forEach(function(row) { current[String(row[1])] = parseInt(row[2]) || 0; });
-    }
-    items.forEach(function(item) {
-      var newCount = Math.max(0, (current[item.name] || 0) + (parseInt(item.delta) || 0));
-      sheet.appendRow([date, item.name, newCount]);
-    });
-  } else {
-    items.forEach(function(item) {
-      sheet.appendRow([date, item.name, parseInt(item.count) || 0]);
-    });
-  }
+  var sheet    = getSheet(TAB.INVENTORY);
+  var datetime = data.datetime || data.date || '';
+  var items    = data.items || [];
+  items.forEach(function(item) {
+    sheet.appendRow([datetime, item.name, parseInt(item.count) || 0]);
+  });
   return { success: true, message: 'Inventory updated.' };
 }
 
@@ -155,26 +153,28 @@ function updateInventory(data) {
 // ============================================================
 
 function getDashboard() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-
   // --- Inventory config from Config tab ---
-  var inventoryConfig = readInventoryConfig(ss);
+  var inventoryConfig = readInventoryConfig();
 
   // --- Latest count per item (tall Inventory format) ---
-  var invSheet   = ss.getSheetByName(TAB.INVENTORY);
+  var invSheet   = ss().getSheetByName(TAB.INVENTORY);
   var inventory  = {};
   var lowStockArr = [];
   inventoryConfig.forEach(function(item) { inventory[item.name] = 0; });
 
   if (invSheet && invSheet.getLastRow() > 1) {
-    var invRows = invSheet.getRange(2, 1, invSheet.getLastRow() - 1, 3).getValues();
-    // Walk forward; last write for each item wins
-    invRows.forEach(function(row) {
-      var name = String(row[1]);
-      if (inventory.hasOwnProperty(name)) {
-        inventory[name] = parseInt(row[2]) || 0;
+    var lastRow   = invSheet.getLastRow();
+    var readFrom  = Math.max(2, lastRow - 499); // read at most 500 rows from the tail
+    var invRows   = invSheet.getRange(readFrom, 1, lastRow - readFrom + 1, 3).getValues();
+    var found     = {};
+    // Walk backward; first value seen per item is the most recent
+    for (var r = invRows.length - 1; r >= 0; r--) {
+      var name = String(invRows[r][1]);
+      if (inventory.hasOwnProperty(name) && !found[name]) {
+        inventory[name] = parseInt(invRows[r][2]) || 0;
+        found[name] = true;
       }
-    });
+    }
   }
 
   // Build low-stock flags
@@ -185,7 +185,7 @@ function getDashboard() {
   });
 
   // --- Weight trend (last 7 distinct days) + last 3 BP readings ---
-  var measSheet = ss.getSheetByName(TAB.MEASUREMENTS);
+  var measSheet = ss().getSheetByName(TAB.MEASUREMENTS);
   var weightTrend = [];
   var bpRecent = [];
   var bpAvgSys = null, bpAvgDia = null;
@@ -199,24 +199,31 @@ function getDashboard() {
 
     // Walk backward: collect last 7 distinct-day weight entries and last 3 BP readings
     var weightByDay = {};
+    var lastExchange = null;
     for (var i = mData.length - 1; i >= 0; i--) {
       var row = mData[i];
       var dateVal = row[0];
       var dateStr = dateVal instanceof Date
         ? Utilities.formatDate(dateVal, tz, 'yyyy-MM-dd')
         : String(dateVal);
+      var timeVal = row[1];
+      var timeStr = timeVal instanceof Date
+        ? Utilities.formatDate(timeVal, tz, 'HH:mm')
+        : (String(timeVal).trim() || '');
 
       if (row[2] !== '' && row[2] !== null && !weightByDay.hasOwnProperty(dateStr)) {
         weightByDay[dateStr] = row[2];
       }
       if (row[3] && row[4] && bpRecent.length < 3) {
-        var timeVal = row[1];
-        var timeStr = timeVal instanceof Date
-          ? Utilities.formatDate(timeVal, tz, 'HH:mm')
-          : (String(timeVal).trim() || '');
         bpRecent.push({ date: dateStr, time: timeStr, systolic: parseInt(row[3]), diastolic: parseInt(row[4]) });
       }
-      if (Object.keys(weightByDay).length >= 7 && bpRecent.length >= 3) break;
+      if (!lastExchange) {
+        var mType = String(row[8]);
+        if (mType === 'drain' || mType === 'fill' || mType === 'drain_fill') {
+          lastExchange = { date: dateStr, time: timeStr, type: mType };
+        }
+      }
+      if (Object.keys(weightByDay).length >= 7 && bpRecent.length >= 3 && lastExchange) break;
     }
 
     // Sort weight entries ascending by date, keep last 7 days
@@ -241,35 +248,62 @@ function getDashboard() {
     lowStockFlags:   lowStockArr.join(', '),
     weightTrend:     weightTrend,
     bpRecent:        bpRecent,
-    bpAvg:           bpAvgSys !== null ? { systolic: bpAvgSys, diastolic: bpAvgDia } : null
+    bpAvg:           bpAvgSys !== null ? { systolic: bpAvgSys, diastolic: bpAvgDia } : null,
+    lastExchange:    lastExchange
   };
 }
 
-function getHistory(n) {
+function getHistory(from, to) {
   var sheet = getSheet(TAB.MEASUREMENTS);
   if (sheet.getLastRow() <= 1) return { rows: [] };
-  var numRows  = Math.min(parseInt(n) || 7, sheet.getLastRow() - 1);
-  var startRow = sheet.getLastRow() - numRows + 1;
-  var data     = sheet.getRange(startRow, 1, numRows, 9).getValues();
-  var rows = data.map(function(row) {
-    return {
-      date:            row[0],
-      time:            row[1],
+
+  var tz = Session.getScriptTimeZone();
+
+  var fromDate = from ? new Date(from + 'T00:00:00') : new Date();
+  if (!from) fromDate.setDate(fromDate.getDate() - 7);
+  fromDate.setHours(0, 0, 0, 0);
+
+  var toDate = to ? new Date(to + 'T23:59:59') : new Date();
+  toDate.setHours(23, 59, 59, 999);
+
+  var totalRows = sheet.getLastRow() - 1;
+  var data      = sheet.getRange(2, 1, totalRows, 9).getValues();
+
+  var rows = [];
+  for (var i = data.length - 1; i >= 0; i--) {
+    var row     = data[i];
+    var dateVal = row[0];
+    var rowDate = dateVal instanceof Date ? dateVal : new Date(String(dateVal));
+    if (isNaN(rowDate)) continue;
+    if (rowDate < fromDate) break; // rows are chronological; stop once past window
+    if (rowDate > toDate) continue;
+
+    var timeVal = row[1];
+    var timeStr = timeVal instanceof Date
+      ? Utilities.formatDate(timeVal, tz, 'HH:mm')
+      : (String(timeVal).trim() || '');
+    var dateStr = Utilities.formatDate(rowDate, tz, 'yyyy-MM-dd');
+    rows.push({
+      date:            dateStr,
+      time:            timeStr,
       weight:          row[2],
       bpSystolic:      row[3],
       bpDiastolic:     row[4],
       bagWeight:       row[5],
       notes:           row[6],
-      bagType:         row[7],
+      bagType:         (function(v) {
+        // Sheets converts '2.27%' → 0.0227 on read; restore percentage
+        if (typeof v === 'number') return (Math.round(v * 10000) / 100) + '%';
+        return v ? String(v) : '';
+      })(row[7]),
       measurementType: row[8]
-    };
-  });
+    });
+  }
   return { rows: rows };
 }
 
 function getConfig() {
-  var ss          = SpreadsheetApp.getActiveSpreadsheet();
-  var configSheet = ss.getSheetByName(TAB.CONFIG);
+  var configSheet = ss().getSheetByName(TAB.CONFIG);
   var prepItems   = {};
   var prepSteps   = {};
 
@@ -303,12 +337,10 @@ function getConfig() {
 // ============================================================
 
 function setupSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-
   Object.keys(HEADERS).forEach(function(tabName) {
-    var sheet = ss.getSheetByName(tabName);
+    var sheet = ss().getSheetByName(tabName);
     if (!sheet) {
-      sheet = ss.insertSheet(tabName);
+      sheet = ss().insertSheet(tabName);
     }
     var firstCell = sheet.getRange(1, 1).getValue();
     if (!firstCell || firstCell === '') {
@@ -317,53 +349,125 @@ function setupSheet() {
     }
   });
 
+  // Tokens sheet: add status dropdown validation on column C
+  var tokSheet = ss().getSheetByName(TAB.TOKENS);
+  if (tokSheet) {
+    var rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['pending', 'approved', 'revoked'], true)
+      .setAllowInvalid(false)
+      .build();
+    tokSheet.getRange(2, 3, 1000, 1).setDataValidation(rule);
+    // Freeze header row and set column widths for readability
+    tokSheet.setFrozenRows(1);
+    tokSheet.setColumnWidth(1, 280); // Token UUID
+    tokSheet.setColumnWidth(2, 160); // Label
+    tokSheet.setColumnWidth(3, 100); // Status
+    tokSheet.setColumnWidth(4, 140); // Created
+    tokSheet.setColumnWidth(5, 140); // Last Used
+  }
+
   // Populate Config with defaults if empty
-  var configSheet = ss.getSheetByName(TAB.CONFIG);
+  var configSheet = ss().getSheetByName(TAB.CONFIG);
   if (configSheet && configSheet.getLastRow() <= 1) {
-    configSheet.getRange(2, 1, CONFIG_DEFAULTS.length, 4).setValues(CONFIG_DEFAULTS);
+    // Format the displayName column (H) as plain text before writing,
+    // otherwise Sheets silently converts '1.36%' to the decimal 0.0136
+    configSheet.getRange(2, 8, CONFIG_DEFAULTS.length, 1).setNumberFormat('@');
+    configSheet.getRange(2, 1, CONFIG_DEFAULTS.length, CONFIG_DEFAULTS[0].length).setValues(CONFIG_DEFAULTS);
   }
 
   SpreadsheetApp.getUi().alert('Setup complete. All tabs are ready.');
 }
 
 // ============================================================
+// Token management (device auth)
+// ============================================================
+
+function validateToken(token) {
+  if (!token) return { status: 'unknown' };
+  var sheet = ss().getSheetByName(TAB.TOKENS);
+  if (!sheet || sheet.getLastRow() <= 1) return { status: 'unknown' };
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(token)) {
+      return { status: String(rows[i][2]).toLowerCase() };
+    }
+  }
+  return { status: 'unknown' };
+}
+
+function registerToken(token, label) {
+  if (!token) throw new Error('No token provided');
+  if (String(token).length > 100) throw new Error('Invalid token');
+  var sheet = ss().getSheetByName(TAB.TOKENS);
+  if (!sheet) throw new Error('Tokens sheet not found. Run setupSheet() first.');
+  // Idempotent — ignore duplicate registrations
+  if (sheet.getLastRow() > 1) {
+    var existing = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < existing.length; i++) {
+      if (String(existing[i][0]) === String(token)) return { success: true, message: 'Already registered' };
+    }
+  }
+  var tz  = Session.getScriptTimeZone();
+  var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  sheet.appendRow([token, label || 'Unnamed device', 'pending', now, '']);
+  return { success: true };
+}
+
+function touchToken(token) {
+  if (!token) return { success: false };
+  var sheet = ss().getSheetByName(TAB.TOKENS);
+  if (!sheet || sheet.getLastRow() <= 1) return { success: false };
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  var tz  = Session.getScriptTimeZone();
+  var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(token)) {
+      sheet.getRange(i + 2, 5).setValue(now);
+      return { success: true };
+    }
+  }
+  return { success: false };
+}
+
+// ============================================================
 // Helpers
 // ============================================================
 
-function readInventoryConfig(ss) {
-  var configSheet = ss.getSheetByName(TAB.CONFIG);
+function readInventoryConfig() {
+  var configSheet = ss().getSheetByName(TAB.CONFIG);
   var result = [];
   if (configSheet && configSheet.getLastRow() > 1) {
-    var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 4).getValues();
+    var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 8).getValues();
     rows.forEach(function(row) {
       if (String(row[0]) === 'inventory') {
-        var desc = row[3] !== undefined && row[3] !== null ? String(row[3]) : '';
-        result.push({ name: String(row[1]), min: parseInt(row[2]) || 0, description: desc });
+        var active = row[5] === '' || row[5] === true || String(row[5]).toUpperCase() === 'TRUE';
+        if (!active) return;
+        result.push({
+          name:        String(row[1]),
+          min:         parseInt(row[2]) || 0,
+          description: row[3] ? String(row[3]) : '',
+          isBag:       row[4] === true || String(row[4]).toUpperCase() === 'TRUE',
+          color:       row[6] ? String(row[6]) : '',
+          displayName: (function(v) {
+            // Sheets converts '1.36%' → 0.0136; restore percentage
+            if (typeof v === 'number') return (Math.round(v * 10000) / 100) + '%';
+            return v ? String(v) : '';
+          })(row[7])
+        });
       }
     });
-  }
-  // Fallback if Config tab doesn't exist yet
-  if (!result.length) {
-    result = [
-      { name: 'Solution Bags',    min: 5,  description: '' },
-      { name: 'Caps',             min: 10, description: '' },
-      { name: 'Gauze Pads',       min: 10, description: '' },
-      { name: 'Bandages',         min: 10, description: '' },
-      { name: 'Ointment (units)', min: 10, description: '' }
-    ];
   }
   return result;
 }
 
-// Token is stored in Project Settings → Script Properties as "API_TOKEN".
-// If no token is configured, all requests are allowed (useful during initial setup).
+// Validates that the supplied token exists in the Tokens sheet with status "approved".
 function checkToken(supplied) {
-  var expected = PropertiesService.getScriptProperties().getProperty('API_TOKEN');
-  if (expected && supplied !== expected) throw new Error('Unauthorized');
+  var result = validateToken(supplied);
+  if (result.status !== 'approved') throw new Error('Unauthorized');
 }
 
 function getSheet(name) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  var sheet = ss().getSheetByName(name);
   if (!sheet) throw new Error('Sheet not found: ' + name + '. Run setupSheet() first.');
   return sheet;
 }

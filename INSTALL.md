@@ -11,7 +11,7 @@ This guide gets PD Tracker running from scratch. No coding experience required. 
 
 That's it. No servers, no subscriptions, no software to install.
 
-**Time required:** about 15–20 minutes.
+**Time required:** about 20–25 minutes.
 
 ---
 
@@ -23,9 +23,9 @@ This sheet is where all your data lives. The app reads and writes to it automati
 
 2. Click **Blank spreadsheet** (the big + tile).
 
-3. Click "Untitled spreadsheet" at the very top of the page and type `PD Tracker`, then press Enter.
+3. Click "Untitled spreadsheet" at the very top and type `PD Tracker`, then press Enter.
 
-4. You need **four tabs** at the bottom of the sheet, named exactly as shown below. Right now you only have one called "Sheet1" — rename it and add the rest.
+4. You need **five tabs** at the bottom of the sheet. Right now you only have one called "Sheet1" — rename it and add the rest.
 
    | Tab name | How to get there |
    |---|---|
@@ -33,6 +33,7 @@ This sheet is where all your data lives. The app reads and writes to it automati
    | `Inventory` | Click the **+** button bottom-left → rename the new tab |
    | `Dashboard` | Click **+** again → rename |
    | `Config` | Click **+** again → rename |
+   | `Tokens` | Click **+** again → rename |
 
    > **The names are case-sensitive.** `Daily_Measurements` works; `daily_measurements` or `Daily Measurements` will not.
 
@@ -43,32 +44,32 @@ This sheet is where all your data lives. The app reads and writes to it automati
 The backend is a small script that runs inside Google and handles saving/reading data. You paste it in once.
 
 1. In your Google Sheet, click **Extensions** in the top menu, then click **Apps Script**.  
-   A new browser tab opens showing a code editor with a few lines of placeholder code.
+   A new browser tab opens showing a code editor.
 
-2. Click anywhere inside the editor, press **Ctrl+A** (Windows) or **Cmd+A** (Mac) to select everything, then press **Delete** to clear it. The editor should now be blank.
+2. Click anywhere inside the editor, press **Ctrl+A** (Windows) or **Cmd+A** (Mac) to select everything, then press **Delete** to clear it.
 
-3. Open the file `apps-script/Code.gs` from the PDManagement folder on your computer. Open it with any text editor — on Windows you can right-click → Open with → Notepad; on Mac, right-click → Open With → TextEdit.
+3. Open the file `apps-script/Code.gs` from the PDManagement folder on your computer. Open it with any text editor (Notepad on Windows, TextEdit on Mac).
 
-4. Press **Ctrl+A** / **Cmd+A** to select all the text, then **Ctrl+C** / **Cmd+C** to copy it.
+4. Press **Ctrl+A** / **Cmd+A** to select all, then **Ctrl+C** / **Cmd+C** to copy.
 
-5. Switch back to the Apps Script browser tab and press **Ctrl+V** / **Cmd+V** to paste. The editor should now be full of code.
+5. Switch back to the Apps Script browser tab and press **Ctrl+V** / **Cmd+V** to paste.
 
-6. Press **Ctrl+S** / **Cmd+S** to save. If a popup asks you to name the project, type `PD Tracker` and click **OK** (or **Rename**).
+6. Press **Ctrl+S** / **Cmd+S** to save. If a popup asks you to name the project, type `PD Tracker` and click **OK**.
 
-7. Near the top of the editor you'll see a dropdown that probably says **"myFunction"**. Click it and select **`setupSheet`** from the list.
+7. Near the top of the editor you'll see a dropdown. Click it and select **`setupSheet`** from the list.
 
-8. Click the **Run ▶** button (the play button, to the right of the dropdown).
+8. Click the **Run ▶** button.
 
 9. A popup titled "Authorization required" appears. Click **Review permissions**.
    - Choose your Google account.
-   - You'll see a warning screen saying "Google hasn't verified this app". This is normal — it's your own code, not a third-party app.
-   - Click **Advanced** (small text at the bottom left of the warning screen).
+   - You'll see a warning screen saying "Google hasn't verified this app". This is normal — it's your own code.
+   - Click **Advanced** (small text at the bottom left).
    - Click **Go to PD Tracker (unsafe)**.
    - Click **Allow**.
 
-10. The script runs. After a few seconds, a green bar at the bottom says "Execution completed". Switch back to your Google Sheet — you'll see all four tabs now have column headers, and the Config tab is pre-filled with default items.
+10. The script runs. After a few seconds, a green bar at the bottom says "Execution completed". Switch back to your Google Sheet — all five tabs now have column headers, the Config tab is pre-filled with default items, and the Tokens tab has a status dropdown in column C.
 
-   > If you get a red error bar instead, check that you cleared the editor completely before pasting and that all four tabs are named exactly as shown in Step 1.
+    > If you get a red error bar instead, check that you cleared the editor completely before pasting and that all five tabs are named exactly as shown in Step 1.
 
 ---
 
@@ -78,24 +79,24 @@ This step creates a URL that the app will use to talk to your Google Sheet.
 
 1. Still in the Apps Script editor, click **Deploy** in the top-right corner, then click **New deployment**.
 
-2. On the left side of the dialog that appears, click the **gear icon ⚙** next to "Select type" and choose **Web app** from the menu.
+2. On the left side of the dialog, click the **gear icon ⚙** next to "Select type" and choose **Web app**.
 
-3. Fill in the settings as follows:
-   - **Description:** type anything, e.g. `v1` (this is just a label for your own reference)
+3. Fill in the settings:
+   - **Description:** type anything, e.g. `v1`
    - **Execute as:** `Me`
    - **Who has access:** `Anyone`
 
 4. Click **Deploy**.
 
-5. Another permissions popup may appear — follow the same steps as in Step 2 (Review permissions → Advanced → Allow).
+5. Another permissions popup may appear — follow the same steps as in Step 2.
 
-6. A URL now appears in a box, looking something like:  
+6. A URL appears, looking like:  
    `https://script.google.com/macros/s/AKfycbx.../exec`  
-   Click **Copy** to copy it, then paste it somewhere safe (a note, a text file) — you'll need it in the next step.
+   Click **Copy** and paste it somewhere safe — you'll need it in the next step.
 
 7. Click **Done**.
 
-> **Important:** if you ever edit `Code.gs` in the future, you must create a **New deployment** again to publish your changes. Simply saving the code file is not enough — the live app will keep running the old version until you deploy again.
+> **Important:** if you ever edit `Code.gs` in the future, you must create a **New deployment** again to publish your changes. Simply saving the file is not enough.
 
 ---
 
@@ -103,118 +104,107 @@ This step creates a URL that the app will use to talk to your Google Sheet.
 
 This step tells the app where your Google Sheet is.
 
-1. On your computer, open the `PDManagement` folder and go into the `js` subfolder. Find the file named `api.js`.
+1. On your computer, open the `PDManagement/js` folder.
 
-2. Open `api.js` with a text editor (Notepad on Windows, TextEdit on Mac, or any code editor).
+2. Create a new file called exactly `config.js` (use Notepad on Windows, TextEdit on Mac, or any text editor).
 
-3. Near the top of the file, find this line:
+3. Paste the following into the file, replacing the URL with the one you copied in Step 3:
 
-   ```
-   const APPS_SCRIPT_URL = window.APPS_SCRIPT_URL || 'YOUR_APPS_SCRIPT_URL_HERE';
-   ```
-
-4. Replace `YOUR_APPS_SCRIPT_URL_HERE` with the URL you copied in Step 3.  
-   Keep the single quote marks on either side. The result should look like this:
-
-   ```
-   const APPS_SCRIPT_URL = window.APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbx.../exec';
+   ```js
+   window.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx.../exec';
    ```
 
-   > Make sure there are no extra spaces inside the quotes, and that you haven't deleted the single quotes.
+   Keep the single quote marks on either side of the URL.
 
-5. Save the file (Ctrl+S / Cmd+S).
+4. Save the file inside the `js` folder so the path is `PDManagement/js/config.js`.
 
 ---
 
-## Step 5 — Test locally
+## Step 5 — Register your device
 
-Before sharing the app, confirm it works on your own computer.
+On first launch, the app shows a registration screen instead of the dashboard. You need to register each device (phone, tablet, computer) individually.
 
-1. Open the `PDManagement` folder and double-click `index.html`. It will open in your default web browser.
+1. Open `index.html` in your browser (or open the hosted URL if you've already shared the app — see Step 6).
 
-2. The Dashboard should load and show inventory cards. If it shows "Failed to load", check the troubleshooting section at the bottom of this guide.
+2. The **PD Tracker** registration screen appears. Optionally enter a name like "Mom's phone" so you can identify the device in the Tokens sheet.
 
-3. Try logging a measurement — tap **Log**, enter some values, and tap **Save Drainage**. Then go back to the Dashboard and confirm the data appears.
+3. Click **Request access**. The app shows a "Waiting for approval" screen with a bookmark URL.
 
-The app is now working. Skip to **Customising** if you only need it on your own computer and don't need to share it.
+4. **Save that URL as a bookmark right now.** It looks like `your-app-url/#some-long-code`. This is the URL you'll use every time you open the app — it won't work without the code at the end.
 
----
+5. Open your **PD Tracker Google Sheet** and click the **Tokens** tab.
 
-## Step 6 — Share the app (optional)
+6. You'll see a new row with your device name and status `pending`. Click the cell in the **Status** column and change it to `approved` using the dropdown.
 
-Opening `index.html` directly from your computer works fine for personal use, but the file URL (`file:///...`) cannot be sent to someone else. To share the app or use it on your phone, you need to host the files somewhere on the web.
+7. Go back to the app and click **Check again**. The dashboard loads.
 
-Below are two free options, ordered from simplest to most flexible.
-
----
-
-### Option A — Google Drive (simplest, no account setup needed)
-
-Google Drive can serve static web pages for free, with no technical setup.
-
-1. Go to **[drive.google.com](https://drive.google.com)** and sign in.
-
-2. Click **New → Folder** and name it `PD Tracker`.
-
-3. Open the folder, then drag and drop the entire contents of your `PDManagement` folder into it (all files and subfolders: `index.html`, `css/`, `js/`, etc.).  
-   Wait for the upload to finish.
-
-   > **⚠ Google Drive no longer serves HTML files in the browser** — any link you share will download the file instead of opening it. Option A is not usable for this app. Use **Option B (GitHub Pages)** instead.
+> **Each device or browser needs its own registration.** If you use the app on a second phone, repeat Steps 1–7 on that device. You'll see a second `pending` row appear in the Tokens sheet.
 
 ---
 
-### Option B — GitHub Pages (recommended, free forever)
+## Step 6 — Test the app
 
-GitHub Pages is designed exactly for hosting web apps like this one. It's free, reliable, and gives you a clean URL.
+Confirm everything works before sharing.
+
+1. The Dashboard should show your inventory cards. If it shows "Failed to load", see the Troubleshooting section.
+
+2. Tap **Log**, enter some values, and tap **Save Drainage**.
+
+3. Go back to the Dashboard — the "Last exchange" time should update.
+
+4. Open the **History** tab and confirm the entry appears.
+
+The app is working. Continue to Step 7 if you want to use it on your phone or share it with a caregiver.
+
+---
+
+## Step 7 — Share the app (optional)
+
+Opening `index.html` directly from your computer works for personal use, but the file URL (`file:///...`) cannot be sent to someone else. To use the app on a phone or share it, you need to host the files on the web.
+
+---
+
+### Option A — GitHub Pages (recommended, free forever)
 
 #### Part 1: Create a GitHub account (skip if you already have one)
 
 1. Go to **[github.com](https://github.com)** and click **Sign up**.
-2. Follow the steps to create a free account. You only need the free tier.
+2. Follow the steps to create a free account.
 
 #### Part 2: Create a repository and upload your files
 
-1. Once signed in, click the **+** icon in the top-right corner → **New repository**.
+1. Once signed in, click **+** → **New repository**.
 
-2. Fill in the settings:
-   - **Repository name:** `pd-tracker` (or any name you like — this becomes part of your URL)
-   - **Visibility:** you can choose Public or Private. Note: GitHub Pages on free accounts requires Public.
-   - Leave everything else as-is.
+2. Fill in:
+   - **Repository name:** `pd-tracker` (this becomes part of your URL)
+   - **Visibility:** Public (required for free GitHub Pages)
 
 3. Click **Create repository**.
 
-4. On the next page, look for the option that says **"uploading an existing file"** and click it.
-
-5. Drag and drop **all the files and folders** from your `PDManagement` folder into the upload area. Make sure to include:
+4. Click **"uploading an existing file"** and drag in the following from your `PDManagement` folder:
    - `index.html`
    - The `css/` folder
-   - The `js/` folder  
-   - (You don't need to upload `apps-script/`, `tests/`, or development files)
+   - The `js/` folder (make sure `config.js` is included)
+   
+   You don't need to upload `apps-script/`, `tests/`, or development files.
 
-6. Scroll down, add a short commit message like `initial upload`, and click **Commit changes**.
+5. Scroll down, add a commit message like `initial upload`, and click **Commit changes**.
 
 #### Part 3: Enable GitHub Pages
 
-1. On your repository page, click **Settings** (the tab near the top).
-
+1. Click **Settings** on your repository page.
 2. In the left sidebar, click **Pages**.
-
-3. Under "Source", change the dropdown from "None" to **Deploy from a branch**.
-
-4. Under "Branch", select **main** (or **master**) and leave the folder as `/ (root)`.
-
+3. Under "Source", select **Deploy from a branch**.
+4. Under "Branch", select **main** (or **master**), folder `/ (root)`.
 5. Click **Save**.
-
-6. Wait about 1–2 minutes, then refresh the page. A green banner will appear with your app's URL, which looks like:  
+6. Wait 1–2 minutes, then refresh. A green banner shows your URL:  
    `https://your-username.github.io/pd-tracker/`
 
-7. Open that URL on your phone or share it with a caregiver. Bookmark it for easy access.
-
-> **Updating the app:** if you make changes to any files (e.g. edit `api.js` or change styles), go back to the repository on GitHub, click the file, click the pencil icon to edit, paste the new content, and commit. The site updates automatically within a minute or two.
+**To add a new device after hosting:** open the app URL on the new device (no `#code` yet), register, approve in the Tokens sheet, then save the generated bookmark URL on that device.
 
 ---
 
-### Option C — Other free hosting options
+### Option B — Other free hosting options
 
 | Service | How | Best for |
 |---|---|---|
@@ -222,33 +212,51 @@ GitHub Pages is designed exactly for hosting web apps like this one. It's free, 
 | **Vercel** | Connect a GitHub repo at [vercel.com](https://vercel.com) | If you're already using GitHub |
 | **Cloudflare Pages** | Connect a GitHub repo at [pages.cloudflare.com](https://pages.cloudflare.com) | Fastest global delivery |
 
-For all of these: the folder to upload is `PDManagement`, and there is no build step needed — it's just static files.
+For all of these: upload the `PDManagement` folder contents; there is no build step.
 
 ---
 
 ## Customising items and steps
 
-Everything in the **Prep** and **Inventory** screens comes from the `Config` tab in your Google Sheet. You can change it at any time without touching any code.
+Everything in the **Prep** and **Inventory** screens comes from the `Config` tab. You can change it at any time without touching any code.
 
-| Column A | Column B | Column C | Column D (optional) |
-|---|---|---|---|
-| `inventory` | item name | minimum count before warning | *(leave blank)* |
-| `prep_items` | order number (1, 2, 3…) | item text | explanation shown as a tooltip |
-| `prep_steps` | order number (1, 2, 3…) | step text | explanation shown as a tooltip |
+**Inventory rows (columns A–H):**
 
-**To add a supply item:**  
-Add a new row. Column A = `inventory`, Column B = the item name (e.g. `Sodium Bags`), Column C = the minimum count number (e.g. `5`). Leave Column D blank.
+| Col | Field | Example |
+|---|---|---|
+| A | `inventory` | (literal text) |
+| B | Item name | `Solution Bags 2.27%` |
+| C | Minimum stock count | `5` |
+| D | Description / tooltip | `Green bag. Check expiry.` |
+| E | Is a solution bag (`TRUE`/`FALSE`) | `TRUE` |
+| F | Active — show in app (`TRUE`/`FALSE`) | `TRUE` |
+| G | Bag colour (hex) | `#2BA15A` |
+| H | Display name | `2.27%` |
 
-**To add a tooltip explanation to a prep item or step:**  
-Type the explanation text in Column D of that row. Leave Column D empty for items that don't need one.
+**Prep/step rows (columns A–D):**
 
-**To remove an item:**  
-Delete the entire row.
+| Col | Field | Example |
+|---|---|---|
+| A | `prep_items` or `prep_steps` | |
+| B | Order number | `1` |
+| C | Item / step text | `Blue mask` |
+| D | Tooltip explanation (optional) | `Check expiry date` |
 
-**To change the order of steps:**  
-Change the numbers in Column B. The app sorts by these numbers, so you can use any numbers — they don't have to be consecutive.
+Changes take effect immediately when the app is refreshed. No redeployment needed.
 
-> Config changes take effect immediately when the app is refreshed. No redeployment needed.
+---
+
+## Managing device access
+
+The **Tokens** tab in your Google Sheet is the access control panel:
+
+| Action | How |
+|---|---|
+| **Approve a device** | Change status from `pending` → `approved` |
+| **Revoke a device** | Change status to `revoked` — the device will be blocked on next load |
+| **Add a label** | Edit the Label column to identify the device (e.g. "Dad's iPad") |
+
+The **Last Used** column updates automatically each time an approved device opens the app.
 
 ---
 
@@ -256,46 +264,45 @@ Change the numbers in Column B. The app sorts by these numbers, so you can use a
 
 ### The app shows "Failed to load" on the Dashboard
 
-1. Check that you pasted the correct URL into `js/api.js` — it should end with `/exec`, not `/dev`.
+1. Check that `js/config.js` exists and contains the correct URL ending with `/exec` (not `/dev`).
 2. Make sure there are no extra spaces inside the quotes.
-3. Open `js/api.js` in a text editor and confirm the line looks exactly like the example in Step 4.
-4. If you changed `Code.gs` since your last deployment, create a new deployment (Step 3).
+3. If you changed `Code.gs` since your last deployment, create a new deployment (Step 3).
+
+### The registration screen keeps appearing / "Check again" stays on "Still pending"
+
+1. Open the **Tokens** tab in Google Sheets.
+2. Find the row with your device and confirm the Status column shows `approved` (not `pending`).
+3. If you don't see a row for your device, the registration call may have failed — try the **Request access** button again.
+4. Make sure `Code.gs` has been deployed (Step 3) and `config.js` points to the correct URL.
+
+### The app shows "Access denied"
+
+Your device's token has been revoked. Open the Tokens sheet and change the status back to `approved`, or register as a new device.
 
 ### Data saves but the Dashboard shows nothing
 
-The four sheet tabs must be named exactly as specified in Step 1. Names are case-sensitive and must use underscores (not spaces). Open your Google Sheet and check:
-- `Daily_Measurements` ✓ (not `Daily Measurements` or `daily_measurements`)
-- `Inventory` ✓
-- `Dashboard` ✓
-- `Config` ✓
+The five sheet tabs must be named exactly as specified in Step 1. Names are case-sensitive and must use underscores. Open your Google Sheet and check each tab name.
 
-If any name is wrong, rename the tab and reload the app.
+### The permissions popup never appeared (Step 2)
 
-### The permissions popup never appeared (Step 2, item 9)
-
-The script may have run without asking because you already authorised it for another project, or a browser extension blocked the popup. Try:
+The script may have run without asking because you already authorised it for another project. Try:
 1. In the Apps Script editor, click **Run → Run function → setupSheet**.
-2. If no popup appears and you see a red error, click the **Triggers** icon (clock icon in the left sidebar) — there may be a stale permission there.
+2. If no popup appears and you see a red error, check the **Triggers** icon in the left sidebar.
 
 ### I see "Exception: You do not have permission to call…"
 
-Re-run the authorisation:
-1. In Apps Script, click **Project Settings** (gear icon, left sidebar).
-2. Click **Reset permissions** if that option is available, or simply delete the deployment and create a new one.
+Re-run the authorisation: in Apps Script, click **Project Settings** (gear icon) and reset or re-authorise permissions, or delete the deployment and create a new one.
 
-### The app works on my computer but not when I open the shared link
+### The app works on my computer but not on the shared link
 
-- If using Google Drive: the file may not be set to "Anyone with the link". Go to Drive, right-click the file → Share, and confirm the access setting.
-- If using GitHub Pages: the site may still be building — wait 2 minutes and refresh.
-- Check that you uploaded `index.html` to the root of the repository (not inside a subfolder). The URL `your-site.github.io/pd-tracker/` must directly serve `index.html`.
-- Confirm the URL in `js/api.js` ends in `/exec` and was saved before you uploaded.
+- Check that `js/config.js` was included in the upload (it's easy to miss since it's often gitignored).
+- Confirm `index.html` is at the root of the repository, not inside a subfolder.
+- If using GitHub Pages, wait 2 minutes after the first deployment.
 
 ### Items I added to the Config sheet don't appear in the app
 
-The Config sheet is read live — no redeployment needed. If changes don't appear:
-1. Hard-refresh the app: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac).
-2. Check the spelling of the Category value in Column A — it must be exactly `inventory`, `prep_items`, or `prep_steps` (all lowercase).
+Hard-refresh the app: **Ctrl+Shift+R** (Windows) or **Cmd+Shift+R** (Mac). Check that the Category value in Column A is exactly `inventory`, `prep_items`, or `prep_steps` (all lowercase).
 
 ### The app shows the wrong date or time
 
-The app uses your device's local clock. If the date or time looks wrong, check your device's date/time settings.
+The app uses your device's local clock. Check your device's date/time settings.

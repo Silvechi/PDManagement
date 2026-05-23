@@ -1,30 +1,54 @@
 // ============================================================
-// prep.js — Prep screen (what to prepare + procedure steps)
+// prep.js — Prep reference card screen
 // ============================================================
 
-let prepConfig = null; // cached after first load
+let prepConfig = null;
+const _PREP_CACHE_KEY = 'pd_config_v1';
 
 async function renderPrep(container) {
   container.innerHTML = `
-    <div class="screen-header">
-      <h1>Prep</h1>
+    <div class="page">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Prep</h1>
+          <div class="page-sub">Reference card for the exchange procedure</div>
+        </div>
+      </div>
+      <div id="prep-loading" class="loading-state">Loading…</div>
+      <div id="prep-content" style="display:none"></div>
     </div>
-    <div id="prep-loading" class="loading-state">Loading…</div>
-    <div id="prep-content" style="display:none"></div>
   `;
 
-  if (prepConfig) {
-    renderPrepContent(prepConfig);
-    return;
+  // In-memory hit (same session navigation)
+  if (prepConfig) { renderPrepContent(prepConfig); _refreshPrepInBackground(); return; }
+
+  // localStorage hit — paint immediately, refresh silently
+  const cached = localStorage.getItem(_PREP_CACHE_KEY);
+  if (cached) {
+    try {
+      prepConfig = JSON.parse(cached);
+      renderPrepContent(prepConfig);
+      _refreshPrepInBackground();
+      return;
+    } catch {}
   }
 
+  // No cache — blocking fetch
   try {
     prepConfig = await API.getConfig();
+    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify(prepConfig)); } catch {}
     renderPrepContent(prepConfig);
   } catch (err) {
     document.getElementById('prep-loading').innerHTML =
-      `<div class="feedback feedback-error">Failed to load: ${err.message}</div>`;
+      `<div class="feedback feedback-error">Failed to load: ${escHtml(err.message)}</div>`;
   }
+}
+
+function _refreshPrepInBackground() {
+  API.getConfig().then(fresh => {
+    prepConfig = fresh;
+    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify(fresh)); } catch {}
+  }).catch(() => {});
 }
 
 function renderPrepContent(cfg) {
@@ -33,65 +57,42 @@ function renderPrepContent(cfg) {
   if (loading) loading.style.display = 'none';
   if (content) content.style.display = 'block';
 
-  const itemsHtml = cfg.prepItems && cfg.prepItems.length
-    ? cfg.prepItems.map(item => renderPrepRow(item, 'bullet')).join('')
-    : '<li class="no-data">No items configured.</li>';
+  const itemsHtml = cfg.prepItems?.length
+    ? cfg.prepItems.map(item => {
+        const text = typeof item === 'string' ? item : (item.text || '');
+        return `<li class="prep-item"><span class="prep-dot"></span><span>${escHtml(text)}</span></li>`;
+      }).join('')
+    : '<li class="prep-item" style="color:var(--text-3)">No items configured.</li>';
 
-  const stepsHtml = cfg.prepSteps && cfg.prepSteps.length
-    ? cfg.prepSteps.map((step, i) => renderPrepRow(step, 'step', i + 1)).join('')
-    : '<li class="no-data">No steps configured.</li>';
+  const stepsHtml = cfg.prepSteps?.length
+    ? cfg.prepSteps.map((step, i) => {
+        const text = typeof step === 'string' ? step : (step.text || '');
+        const desc = typeof step === 'string' ? '' : (step.description || '');
+        return `
+          <li class="step">
+            <span class="step-num">${i + 1}</span>
+            <span class="step-text">
+              ${escHtml(text)}
+              ${desc ? `<span style="display:block;margin-top:4px;font-size:12px;color:var(--text-3)">${escHtml(desc)}</span>` : ''}
+            </span>
+          </li>
+        `;
+      }).join('')
+    : '<li class="step"><span class="step-num">—</span><span class="step-text" style="color:var(--text-3)">No steps configured.</span></li>';
 
   content.innerHTML = `
-    <section class="dash-section">
-      <h2 class="section-title">What to Prepare</h2>
-      <ul class="prep-list">${itemsHtml}</ul>
-    </section>
-
-    <section class="dash-section">
-      <h2 class="section-title">Procedure Steps</h2>
-      <ol class="prep-steps-list">${stepsHtml}</ol>
-    </section>
-
-    <p class="section-hint" style="padding:0 0 16px">
-      Edit items and steps in the <strong>Config</strong> tab of your Google Sheet.
-    </p>
-  `;
-}
-
-// Accepts either a plain string (legacy) or {text, description} object
-function renderPrepRow(item, type, stepNum) {
-  const text = typeof item === 'string' ? item : (item.text || '');
-  const desc = typeof item === 'string' ? '' : (item.description || '');
-  const hasTip = desc.trim().length > 0;
-
-  const leadHtml = type === 'step'
-    ? `<span class="prep-step-number">${stepNum}</span>`
-    : `<span class="prep-bullet" aria-hidden="true">·</span>`;
-
-  const listItemClass = ['prep-list-item', type === 'step' ? 'prep-step-item' : '', hasTip ? 'prep-has-tip' : '']
-    .filter(Boolean).join(' ');
-
-  const onclick = hasTip ? ' onclick="togglePrepTip(this)"' : '';
-
-  return `
-    <li class="${listItemClass}"${onclick}>
-      ${leadHtml}
-      <div class="prep-item-body">
-        <div class="prep-item-row">
-          <span class="prep-item-text" dir="auto">${escHtml(text)}</span>
-          ${hasTip ? '<span class="prep-tip-icon" aria-hidden="true">ⓘ</span>' : ''}
-        </div>
-        ${hasTip ? `<div class="prep-tip-panel" dir="auto">${escHtml(desc)}</div>` : ''}
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">What to prepare</h2>
       </div>
-    </li>
+      <ul class="prep-items">${itemsHtml}</ul>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Procedure</h2>
+      </div>
+      <ol class="steps">${stepsHtml}</ol>
+    </section>
   `;
 }
-
-function togglePrepTip(li) {
-  const wasOpen = li.classList.contains('prep-tip-open');
-  // Close any other open tips first
-  document.querySelectorAll('.prep-tip-open').forEach(el => el.classList.remove('prep-tip-open'));
-  if (!wasOpen) li.classList.add('prep-tip-open');
-}
-
-// escHtml is defined in app.js

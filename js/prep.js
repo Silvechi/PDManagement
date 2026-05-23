@@ -2,7 +2,8 @@
 // prep.js — Prep reference card screen
 // ============================================================
 
-let prepConfig = null;
+let prepConfig   = null;
+let _prepVersion = null; // configVersion at last load, for in-memory invalidation
 const _PREP_CACHE_KEY = 'pd_config_v1';
 
 async function renderPrep(container) {
@@ -19,20 +20,28 @@ async function renderPrep(container) {
     </div>
   `;
 
-  // In-memory hit (same session navigation)
-  if (prepConfig) { renderPrepContent(prepConfig); _refreshPrepInBackground(); return; }
-
-  // localStorage hit — use it only if version matches dashboard's configVersion
   const dashVersion = getDashboardData()?.configVersion || null;
+
+  // In-memory hit — valid if version still matches (or no version tracking)
+  if (prepConfig) {
+    if (!dashVersion || _prepVersion === dashVersion) {
+      renderPrepContent(prepConfig);
+      return;
+    }
+    // Version changed since last load — fall through to re-fetch
+  }
+
+  // localStorage hit — use only if version matches
   const cached = localStorage.getItem(_PREP_CACHE_KEY);
   if (cached) {
     try {
       const entry = JSON.parse(cached);
       const cacheValid = entry.data && (!dashVersion || entry.version === dashVersion);
       if (cacheValid) {
-        prepConfig = entry.data;
+        prepConfig      = entry.data;
+        _prepVersion    = entry.version;
         renderPrepContent(prepConfig);
-        _refreshPrepInBackground();
+        if (!dashVersion) _refreshPrepInBackground(); // no version tracking — keep refreshing
         return;
       }
     } catch {}
@@ -41,9 +50,9 @@ async function renderPrep(container) {
   // No cache or stale — blocking fetch
   try {
     const fresh = await API.getConfig();
-    prepConfig = fresh;
-    const version = getDashboardData()?.configVersion || null;
-    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version, data: fresh })); } catch {}
+    prepConfig   = fresh;
+    _prepVersion = getDashboardData()?.configVersion || null;
+    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version: _prepVersion, data: fresh })); } catch {}
     renderPrepContent(prepConfig);
   } catch (err) {
     document.getElementById('prep-loading').innerHTML =
@@ -53,9 +62,9 @@ async function renderPrep(container) {
 
 function _refreshPrepInBackground() {
   API.getConfig().then(fresh => {
-    prepConfig = fresh;
-    const version = getDashboardData()?.configVersion || null;
-    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version, data: fresh })); } catch {}
+    prepConfig   = fresh;
+    _prepVersion = null;
+    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version: null, data: fresh })); } catch {}
   }).catch(() => {});
 }
 

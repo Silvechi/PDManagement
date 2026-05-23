@@ -13,6 +13,21 @@ let _histTo     = null; // YYYY-MM-DD
 let _histRows   = null;
 let _histConfig = null; // inventoryConfig cache for bag color lookup
 
+function _histCacheKey(patientId, from, to) { return 'history_' + patientId + '_' + from + '_' + to; }
+
+function _histReadCache(patientId, from, to) {
+  try {
+    const raw = localStorage.getItem(_histCacheKey(patientId, from, to));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function _histWriteCache(patientId, from, to, version, rows) {
+  try {
+    localStorage.setItem(_histCacheKey(patientId, from, to), JSON.stringify({ version, rows, savedAt: Date.now() }));
+  } catch {}
+}
+
 function _todayStr() {
   return new Date().toLocaleDateString('en-CA');
 }
@@ -40,7 +55,10 @@ async function renderHistory(container) {
         </div>
       </div>
       <div class="hist-filter">
-        <div class="chip-row" id="hist-chips"></div>
+        <div class="hist-filter-top">
+          <div class="chip-row" id="hist-chips"></div>
+          <span class="hist-sync-dot" id="hist-sync-dot" style="display:none"></span>
+        </div>
         <div class="hist-daterange">
           <div class="hist-daterange-field">
             <label class="hist-daterange-label" for="hist-from">From</label>
@@ -99,25 +117,61 @@ function onHistToChange(val) {
 }
 
 async function _fetchAndRenderHist() {
-  const loading = document.getElementById('hist-loading');
-  const content = document.getElementById('hist-content');
+  const loading   = document.getElementById('hist-loading');
+  const content   = document.getElementById('hist-content');
+  const patientId = getActivePatientId();
+
+  const cached = _histReadCache(patientId, _histFrom, _histTo);
+  if (cached) {
+    _histRows = cached.rows;
+    if (loading) loading.style.display = 'none';
+    _renderHistContent();
+    _histBackgroundRefresh(patientId, cached.version);
+    return;
+  }
+
   if (loading) { loading.textContent = 'Loading…'; loading.style.display = ''; }
   if (content) content.innerHTML = '';
 
   try {
-    const patientId = getActivePatientId();
     const [result, dashResult] = await Promise.all([
       API.getHistory({ patientId, from: _histFrom, to: _histTo }),
       _histConfig ? Promise.resolve(null) : API.getDashboard(patientId)
     ]);
-    if (dashResult && dashResult.inventoryConfig) {
-      _histConfig = dashResult.inventoryConfig;
-    }
+    if (dashResult?.inventoryConfig) _histConfig = dashResult.inventoryConfig;
     _histRows = result.rows || [];
+    _histWriteCache(patientId, _histFrom, _histTo, result.version || null, _histRows);
     _renderHistContent();
   } catch (err) {
     if (loading) loading.innerHTML = `<div class="feedback feedback-error">Failed to load: ${escHtml(err.message)}</div>`;
   }
+}
+
+function _histSetSyncing(on) {
+  const dot = document.getElementById('hist-sync-dot');
+  if (dot) dot.style.display = on ? '' : 'none';
+}
+
+async function _histBackgroundRefresh(patientId, cachedVersion) {
+  try {
+    const { version } = await API.getDataVersion();
+    if (version && version !== cachedVersion) {
+      _histSetSyncing(true);
+      const loading = document.getElementById('hist-loading');
+      const content = document.getElementById('hist-content');
+      if (loading) { loading.textContent = 'Loading…'; loading.style.display = ''; }
+      if (content) content.innerHTML = '';
+      const [result, dashResult] = await Promise.all([
+        API.getHistory({ patientId, from: _histFrom, to: _histTo }),
+        _histConfig ? Promise.resolve(null) : API.getDashboard(patientId)
+      ]);
+      if (dashResult?.inventoryConfig) _histConfig = dashResult.inventoryConfig;
+      _histRows = result.rows || [];
+      _histWriteCache(patientId, _histFrom, _histTo, result.version || null, _histRows);
+      _renderHistContent();
+      _histSetSyncing(false);
+    }
+  } catch { _histSetSyncing(false); }
 }
 
 function _renderHistContent() {

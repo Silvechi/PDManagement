@@ -1008,3 +1008,36 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
 }
 .form-input:focus { outline: none; border-color: var(--accent); }
 textarea.form-input { resize: vertical; min-height: 72px; }
+
+/* ── Dashboard cache / refresh ───────────────────────────── */
+.dash-updated {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.icon-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border: none; background: none; cursor: pointer;
+  color: var(--text-3); border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+}
+.icon-btn:hover { background: var(--border); color: var(--text); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.icon-btn.spinning svg { animation: spin 1s linear infinite; }
+
+/* ── History sync indicator ──────────────────────────────── */
+.hist-filter-top {
+  display: flex; align-items: center; gap: 8px;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+.hist-sync-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}

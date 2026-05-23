@@ -41,10 +41,11 @@ function doGet(e) {
     if (action === 'touchToken')    return jsonResponse(touchToken(e.parameter.token));
     // Protected actions — readonly tokens allowed on GET
     checkToken(e.parameter.token, true);
-    if (action === 'getDashboard') return jsonResponse(getDashboard(e.parameter.patientId));
-    if (action === 'getHistory')   return jsonResponse(getHistory(e.parameter.patientId, e.parameter.from, e.parameter.to));
-    if (action === 'getConfig')    return jsonResponse(getConfig());
-    if (action === 'getPatients')  return jsonResponse(getPatients());
+    if (action === 'getDashboard')   return jsonResponse(getDashboard(e.parameter.patientId));
+    if (action === 'getHistory')     return jsonResponse(getHistory(e.parameter.patientId, e.parameter.from, e.parameter.to));
+    if (action === 'getConfig')      return jsonResponse(getConfig());
+    if (action === 'getPatients')    return jsonResponse(getPatients());
+    if (action === 'getDataVersion') return jsonResponse(getDataVersion());
     return jsonResponse({ error: 'Unknown GET action: ' + action });
   } catch (err) {
     return jsonResponse({ error: err.message });
@@ -93,6 +94,7 @@ function logMeasurement(data) {
     data.patientId               || '',
     parseFloat(data.fillVolume)  || ''
   ]);
+  _touchDataLastUpdated();
   return { success: true, message: 'Measurement logged.' };
 }
 
@@ -103,7 +105,41 @@ function updateInventory(data) {
   items.forEach(function(item) {
     sheet.appendRow([datetime, item.name, parseInt(item.count) || 0, data.patientId || '']);
   });
+  _touchDataLastUpdated();
   return { success: true, message: 'Inventory updated.' };
+}
+
+function getDataVersion() {
+  return { version: _readDataLastUpdated() };
+}
+
+function _readDataLastUpdated() {
+  var configSheet = ss().getSheetByName(TAB.CONFIG);
+  if (!configSheet || configSheet.getLastRow() <= 1) return null;
+  var rows = configSheet.getRange(2, 2, configSheet.getLastRow() - 1, 2).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === 'dataLastUpdated') {
+      var v = rows[i][1];
+      if (!v) return null;
+      if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+      return String(v);
+    }
+  }
+  return null;
+}
+
+function _touchDataLastUpdated() {
+  var configSheet = ss().getSheetByName(TAB.CONFIG);
+  if (!configSheet || configSheet.getLastRow() <= 1) return;
+  var keys = configSheet.getRange(2, 2, configSheet.getLastRow() - 1, 1).getValues();
+  var tz   = Session.getScriptTimeZone();
+  var now  = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+  for (var i = 0; i < keys.length; i++) {
+    if (String(keys[i][0]) === 'dataLastUpdated') {
+      configSheet.getRange(i + 2, 3).setValue(now);
+      return;
+    }
+  }
 }
 
 // ============================================================
@@ -262,7 +298,7 @@ function getHistory(patientId, from, to) {
       fillVolume:      row[10] !== '' ? row[10] : ''
     });
   }
-  return { rows: rows };
+  return { version: _readDataLastUpdated(), rows: rows };
 }
 
 function getConfig() {

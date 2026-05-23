@@ -351,6 +351,7 @@ async function submitBag() {
       measurementType: procType === 'both' ? 'drain_fill' : procType,
       patientId: getActivePatientId()
     });
+    invalidateDashboardCache();
 
     if (hasFill && _bagItem) {
       const usageBags = _usageBags || 1;
@@ -457,6 +458,7 @@ async function submitWeight() {
 
   try {
     await API.logMeasurement({ date, time, weight, measurementType: 'weight', patientId: getActivePatientId() });
+    invalidateDashboardCache();
     setFeedback('wt', `Weight saved · ${weight.toFixed(1)} kg`, 'success');
     _nowPillDate = new Date();
     buildNowPill('now-pill-container');
@@ -565,6 +567,7 @@ async function submitBP() {
 
   try {
     await API.logMeasurement({ date, time, bpSystolic: sys, bpDiastolic: dia, measurementType: 'bp', patientId: getActivePatientId() });
+    invalidateDashboardCache();
     setFeedback('bp', `BP saved · ${sys}/${dia} mmHg`, 'success');
     _nowPillDate = new Date();
     buildNowPill('now-pill-container');

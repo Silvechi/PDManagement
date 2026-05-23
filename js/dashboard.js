@@ -6,33 +6,118 @@ let dashboardData = null;
 // inventory.js and measurements.js read this via getDashboardData() rather than the raw global
 function getDashboardData() { return dashboardData; }
 
+function _dashCacheKey(patientId) { return 'dashboard_' + patientId; }
+
+function _dashReadCache(patientId) {
+  try {
+    const raw = localStorage.getItem(_dashCacheKey(patientId));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function _dashWriteCache(patientId, version, data) {
+  try {
+    localStorage.setItem(_dashCacheKey(patientId), JSON.stringify({ version, data, savedAt: Date.now() }));
+  } catch {}
+}
+
+// Call after a successful local write to force re-fetch on next visit
+function invalidateDashboardCache(patientId) {
+  try {
+    const key = _dashCacheKey(patientId || getActivePatientId());
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const cached = JSON.parse(raw);
+    cached.version = null;
+    localStorage.setItem(key, JSON.stringify(cached));
+  } catch {}
+}
+
 async function renderDashboard(container) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const patientId = getActivePatientId();
+
+  const REFRESH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.36-3.36L23 10M1 14l5.13 4.36A9 9 0 0020.49 15"/></svg>`;
 
   container.innerHTML = `
     <div class="page">
       <div class="page-head">
         <div>
           <div class="page-sub">${today}</div>
+          <div class="dash-updated" id="dash-updated"></div>
         </div>
-        <button class="quick-log" onclick="navigateTo('measurements')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>
-          <span>Quick log</span>
-        </button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="icon-btn" id="dash-refresh-btn" onclick="refreshDashboard()" title="Refresh">${REFRESH_ICON}</button>
+          <button class="quick-log" onclick="navigateTo('measurements')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Quick log</span>
+          </button>
+        </div>
       </div>
-      <div id="dash-loading" class="loading-state">Loading…</div>
-      <div id="dash-content" style="display:none"></div>
+      <div id="dash-loading" class="loading-state" style="display:none">Loading…</div>
+      <div id="dash-content"></div>
     </div>
   `;
 
-  try {
-    const fresh = await API.getDashboard(getActivePatientId());
-    dashboardData = fresh;
-    renderDashboardContent(fresh);
-  } catch (err) {
-    document.getElementById('dash-loading').innerHTML =
-      `<div class="feedback feedback-error">Failed to load: ${escHtml(err.message)}</div>`;
+  const cached = _dashReadCache(patientId);
+  if (cached?.data) {
+    dashboardData = cached.data;
+    renderDashboardContent(cached.data);
+    _dashSetUpdated(cached.savedAt);
+    _dashBackgroundRefresh(patientId, cached.version);
+  } else {
+    document.getElementById('dash-loading').style.display = '';
+    await _dashFetch(patientId);
   }
+}
+
+function _dashSetRefreshing(on) {
+  const btn = document.getElementById('dash-refresh-btn');
+  if (btn) btn.classList.toggle('spinning', on);
+}
+
+async function refreshDashboard() {
+  const patientId = getActivePatientId();
+  _dashSetRefreshing(true);
+  await _dashFetch(patientId);
+  _dashSetRefreshing(false);
+}
+
+async function _dashFetch(patientId) {
+  try {
+    const fresh = await API.getDashboard(patientId);
+    dashboardData = fresh;
+    const version = fresh.configVersion || null;
+    _dashWriteCache(patientId, version, fresh);
+    renderDashboardContent(fresh);
+    _dashSetUpdated(Date.now());
+    const loading = document.getElementById('dash-loading');
+    if (loading) loading.style.display = 'none';
+  } catch (err) {
+    const loading = document.getElementById('dash-loading');
+    if (loading) {
+      loading.style.display = '';
+      loading.innerHTML = `<div class="feedback feedback-error">Failed to load: ${escHtml(err.message)}</div>`;
+    }
+  }
+}
+
+async function _dashBackgroundRefresh(patientId, cachedVersion) {
+  try {
+    const { version } = await API.getDataVersion();
+    if (version && version !== cachedVersion) {
+      _dashSetRefreshing(true);
+      await _dashFetch(patientId);
+      _dashSetRefreshing(false);
+    }
+  } catch {}
+}
+
+function _dashSetUpdated(ts) {
+  const el = document.getElementById('dash-updated');
+  if (!el || !ts) return;
+  const d = new Date(ts);
+  el.textContent = 'Updated ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 function renderDashboardContent(data) {

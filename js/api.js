@@ -75,7 +75,8 @@ async function apiPost(action, body = {}) {
 // ============================================================
 
 const API = {
-  getDashboard: (patientId) => apiGet('getDashboard', { patientId }),
+  getDashboard:   (patientId) => apiGet('getDashboard', { patientId }),
+  getDataVersion: ()          => apiGet('getDataVersion'),
 
   getHistory: ({ patientId, from, to } = {}) => apiGet('getHistory', { patientId, from, to }),
 

@@ -179,6 +179,7 @@ async function handleInventorySubmit() {
 
   try {
     await API.updateInventory({ datetime, items, patientId: getActivePatientId() });
+    invalidateDashboardCache();
     setInventoryFeedback('Inventory saved.', 'success');
     const dash = typeof getDashboardData === 'function' ? getDashboardData() : null;
     if (dash?.inventory) {

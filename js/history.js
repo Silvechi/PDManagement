@@ -104,7 +104,11 @@ async function _fetchAndRenderHist() {
   if (content) content.innerHTML = '';
 
   try {
-    const result = await API.getHistory({ from: _histFrom, to: _histTo });
+    const needsConfig = !getDashboardData();
+    const [result] = await Promise.all([
+      API.getHistory({ from: _histFrom, to: _histTo }),
+      needsConfig ? API.getDashboard().then(d => { dashboardData = d; }) : Promise.resolve()
+    ]);
     _histRows = result.rows || [];
     _renderHistContent();
   } catch (err) {

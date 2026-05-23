@@ -852,6 +852,16 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   color: var(--danger); font-weight: 600; font-size: 14px;
 }
 
+/* ── Exchange overdue banner card ───────────────────────────── */
+.card-overdue {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+.card-overdue-inner {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--danger); font-weight: 600; font-size: 14px;
+}
+
 /* ── Auth screens ─────────────────────────────────────────── */
 .auth-screen {
   min-height: 100dvh;

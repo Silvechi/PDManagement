@@ -79,11 +79,11 @@ function _dashSetRefreshing(on) {
 async function refreshDashboard() {
   const patientId = getActivePatientId();
   _dashSetRefreshing(true);
-  await _dashFetch(patientId);
+  await _dashFetch(patientId, true); // silent — cached content already showing
   _dashSetRefreshing(false);
 }
 
-async function _dashFetch(patientId) {
+async function _dashFetch(patientId, silent = false) {
   try {
     const fresh = await API.getDashboard(patientId);
     dashboardData = fresh;
@@ -94,6 +94,7 @@ async function _dashFetch(patientId) {
     const loading = document.getElementById('dash-loading');
     if (loading) loading.style.display = 'none';
   } catch (err) {
+    if (silent) return;
     const loading = document.getElementById('dash-loading');
     if (loading) {
       loading.style.display = '';
@@ -107,7 +108,7 @@ async function _dashBackgroundRefresh(patientId, cachedVersion) {
     const { version } = await API.getDataVersion();
     if (version && version !== cachedVersion) {
       _dashSetRefreshing(true);
-      await _dashFetch(patientId);
+      await _dashFetch(patientId, true); // silent — cached content already showing
       _dashSetRefreshing(false);
     }
   } catch {}
@@ -198,6 +199,30 @@ function renderDashboardContent(data) {
     `;
   }
 
+  // ── Exchange overdue indicator ──
+  let overdueBanner = '';
+  if (data.lastExchange && bagItems.length) {
+    const maxH = bagItems.reduce((m, item) =>
+      (item.maxHours > 0) ? (m === null ? item.maxHours : Math.min(m, item.maxHours)) : m, null);
+    if (maxH !== null) {
+      const dt = new Date(data.lastExchange.date + 'T' + (data.lastExchange.time || '00:00') + ':00');
+      const hoursAgo = (Date.now() - dt.getTime()) / 3600000;
+      if (!isNaN(hoursAgo) && hoursAgo > maxH) {
+        const hrs = Math.floor(hoursAgo);
+        const min = Math.round((hoursAgo - hrs) * 60);
+        const elapsed = hrs > 0 ? (min > 0 ? `${hrs}h ${min}m` : `${hrs}h`) : `${min}m`;
+        overdueBanner = `
+          <div class="card card-overdue">
+            <div class="card-overdue-inner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              Exchange overdue · ${elapsed} since last (max ${maxH}h)
+            </div>
+          </div>
+        `;
+      }
+    }
+  }
+
   // ── BP vitals ──
   const bpRecent = data.bpRecent || [];
   let bpHtml = '<p class="no-data">No BP data yet.</p>';
@@ -240,6 +265,7 @@ function renderDashboardContent(data) {
   }
 
   content.innerHTML = `
+    ${overdueBanner}
     ${lowBanner}
 
     ${bagItems.length ? `

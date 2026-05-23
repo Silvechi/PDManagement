@@ -289,7 +289,12 @@ function readConfigVersion() {
   var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 3).getValues();
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === 'meta' && String(rows[i][1]) === 'lastUpdated') {
-      return rows[i][2] ? String(rows[i][2]) : null;
+      var v = rows[i][2];
+      if (!v) return null;
+      if (v instanceof Date) {
+        return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+      }
+      return String(v);
     }
   }
   return null;

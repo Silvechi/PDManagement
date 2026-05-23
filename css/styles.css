@@ -918,6 +918,7 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   transition: opacity 0.15s;
 }
 .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-btn-secondary { background: transparent; color: var(--text-2); border: 1px solid var(--border); }
 .auth-msg {
   font-size: 13px;
   color: var(--text-2);

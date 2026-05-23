@@ -6,21 +6,30 @@
 // ============================================================
 
 // Default config written by setupSheet() if Config tab is empty.
-// Columns: Category | Key/Name | Value/Min | Description | isBag | active | color | displayName
+// Columns: Category | Key/Name | Value/Min | Description | isBag | active | color | displayName | maxHours | reorderDays
 var CONFIG_DEFAULTS = [
-  // Inventory bags — isBag=true, active=true, color, displayName
-  // ['inventory', 'Solution Bags 1.36%', '5', 'Description here.', true, true, '#E8A317', '1.36%'],
-  // ['inventory', 'Solution Bags 2.27%', '5', 'Description here.', true, true, '#2BA15A', '2.27%'],
+  // Inventory bags — isBag=true, active=true, color, displayName, maxHours (leave reorderDays blank)
+  // ['inventory', 'Solution Bags 1.36%', '5', 'Description here.', true, true, '#E8A317', '1.36%', '6',  ''],
+  // ['inventory', 'Solution Bags 2.27%', '5', 'Description here.', true, true, '#2BA15A', '2.27%', '6',  ''],
+  // ['inventory', 'Solution Bags 3.86%', '5', 'Description here.', true, true, '#C0392B', '3.86%', '6',  ''],
+  // ['inventory', 'Overnight Bag',       '2', 'Description here.', true, true, '#8E44AD', 'Night', '10', ''],
 
-  // Inventory supplies — isBag=false, active=true
-  // ['inventory', 'Caps',       '10', 'Description here.', false, true, '', ''],
-  // ['inventory', 'Gauze Pads', '10', '',                  false, true, '', ''],
+  // Inventory supplies — isBag=false, active=true, leave maxHours blank, set reorderDays
+  // ['inventory', 'Caps',        '10', 'Description here.', false, true, '', '', '', '14'],
+  // ['inventory', 'Gauze Pads',  '10', '',                  false, true, '', '', '', '14'],
+  // ['inventory', 'Tape',        '5',  '',                  false, true, '', '', '', '14'],
+  // ['inventory', 'Disinfectant','3',  '',                  false, true, '', '', '', '14'],
 
-  // Prep checklist items (columns E-H unused — leave empty)
-  // ['prep_items', '1', 'Item text', '', '', '', '', ''],
-  // ['prep_items', '2', 'Item text', 'Optional description', '', '', '', ''],
+  // Prep checklist items (columns E-J unused — leave empty)
+  // ['prep_items', '1', 'Item text', '', '', '', '', '', '', ''],
+  // ['prep_items', '2', 'Item text', 'Optional description', '', '', '', '', '', ''],
 
-  // Procedure steps (columns E-H unused — leave empty)
-  // ['prep_steps', '1',  'Step text', '', '', '', '', ''],
-  // ['prep_steps', '2',  'Step text', '', '', '', '', ''],
+  // Procedure steps (columns E-J unused — leave empty)
+  // ['prep_steps', '1',  'Step text', '', '', '', '', '', '', ''],
+  // ['prep_steps', '2',  'Step text', '', '', '', '', '', '', ''],
+
+  // Meta rows — seeded by setupSheet(); keep here so a fresh Config write includes them
+  ['meta', 'dataLastUpdated',  '', '', '', '', '', '', '', ''],
+  ['meta', 'maxExchangeHours', '6', '', '', '', '', '', '', ''],
+  ['meta', 'exportEmail',      '', '', '', '', '', '', '', ''],
 ];

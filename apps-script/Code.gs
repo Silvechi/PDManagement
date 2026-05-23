@@ -13,14 +13,16 @@ var TAB = {
   MEASUREMENTS: 'Daily_Measurements',
   INVENTORY:    'Inventory',
   CONFIG:       'Config',
-  TOKENS:       'Tokens'
+  TOKENS:       'Tokens',
+  PATIENTS:     'Patients'
 };
 
 var HEADERS = {
-  Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type'],
-  Inventory:          ['DateTime', 'Item Name', 'Count'],
-  Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName'],
-  Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used']
+  Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type', 'PatientID', 'Fill Volume (L)'],
+  Inventory:          ['DateTime', 'Item Name', 'Count', 'PatientID'],
+  Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName', 'maxHours', 'reorderDays'],
+  Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used', 'PasswordHash', 'ActivePatientID', 'Theme', 'Language'],
+  Patients:           ['PatientID', 'Name', 'DOB', 'Comment', 'Active', 'LastUpdated']
 };
 
 // CONFIG_DEFAULTS is defined in Config.defaults.gs (gitignored).
@@ -36,10 +38,9 @@ function doGet(e) {
   try {
     // Public actions — no approved token required
     if (action === 'validateToken') return jsonResponse(validateToken(e.parameter.token));
-    if (action === 'registerToken') return jsonResponse(registerToken(e.parameter.token, e.parameter.label));
     if (action === 'touchToken')    return jsonResponse(touchToken(e.parameter.token));
-    // Protected actions
-    checkToken(e.parameter.token);
+    // Protected actions — readonly tokens allowed on GET
+    checkToken(e.parameter.token, true);
     if (action === 'getDashboard') return jsonResponse(getDashboard());
     if (action === 'getHistory')   return jsonResponse(getHistory(e.parameter.from, e.parameter.to));
     if (action === 'getConfig')    return jsonResponse(getConfig());
@@ -58,6 +59,9 @@ function doPost(e) {
   }
   var action = body.action;
   try {
+    // Public actions — no approved token required
+    if (action === 'loginOrRegister') return jsonResponse(loginOrRegister(body.label, body.passwordHash, body.token));
+    // Protected actions — readonly tokens not allowed on POST (writes)
     checkToken(body.token);
     if (action === 'logMeasurement')  return jsonResponse(logMeasurement(body));
     if (action === 'updateInventory') return jsonResponse(updateInventory(body));
@@ -321,7 +325,7 @@ function setupSheet() {
   var tokSheet = ss().getSheetByName(TAB.TOKENS);
   if (tokSheet) {
     var rule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['pending', 'approved', 'revoked'], true)
+      .requireValueInList(['pending', 'approved', 'revoked', 'readonly'], true)
       .setAllowInvalid(false)
       .build();
     tokSheet.getRange(2, 3, 1000, 1).setDataValidation(rule);
@@ -332,6 +336,27 @@ function setupSheet() {
     tokSheet.setColumnWidth(3, 100); // Status
     tokSheet.setColumnWidth(4, 140); // Created
     tokSheet.setColumnWidth(5, 140); // Last Used
+    tokSheet.setColumnWidth(6, 220); // PasswordHash
+    tokSheet.setColumnWidth(7, 220); // ActivePatientID
+    tokSheet.setColumnWidth(8, 80);  // Theme
+    tokSheet.setColumnWidth(9, 80);  // Language
+  }
+
+  // Patients sheet: freeze header, column widths, Active dropdown
+  var patientsSheet = ss().getSheetByName(TAB.PATIENTS);
+  if (patientsSheet) {
+    patientsSheet.setFrozenRows(1);
+    patientsSheet.setColumnWidth(1, 220); // PatientID
+    patientsSheet.setColumnWidth(2, 160); // Name
+    patientsSheet.setColumnWidth(3, 100); // DOB
+    patientsSheet.setColumnWidth(4, 200); // Comment
+    patientsSheet.setColumnWidth(5, 60);  // Active
+    patientsSheet.setColumnWidth(6, 140); // LastUpdated
+    var activeRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['TRUE', 'FALSE'], true)
+      .setAllowInvalid(false)
+      .build();
+    patientsSheet.getRange(2, 5, 1000, 1).setDataValidation(activeRule);
   }
 
   // Populate Config with defaults if empty
@@ -341,6 +366,20 @@ function setupSheet() {
     // otherwise Sheets silently converts '1.36%' to the decimal 0.0136
     configSheet.getRange(2, 8, CONFIG_DEFAULTS.length, 1).setNumberFormat('@');
     configSheet.getRange(2, 1, CONFIG_DEFAULTS.length, CONFIG_DEFAULTS[0].length).setValues(CONFIG_DEFAULTS);
+  }
+
+  // Seed Config meta rows if they don't already exist
+  var metaKeys     = ['dataLastUpdated', 'maxExchangeHours', 'exportEmail'];
+  var metaDefaults = { dataLastUpdated: '', maxExchangeHours: '6', exportEmail: '' };
+  if (configSheet) {
+    var existingKeys = configSheet.getLastRow() > 1
+      ? configSheet.getRange(2, 2, configSheet.getLastRow() - 1, 1).getValues().map(function(r) { return r[0]; })
+      : [];
+    metaKeys.forEach(function(key) {
+      if (existingKeys.indexOf(key) === -1) {
+        configSheet.appendRow(['meta', key, metaDefaults[key], '', '', '', '', '', '', '']);
+      }
+    });
   }
 
   SpreadsheetApp.getUi().alert('Setup complete. All tabs are ready.');
@@ -354,31 +393,63 @@ function validateToken(token) {
   if (!token) return { status: 'unknown' };
   var sheet = ss().getSheetByName(TAB.TOKENS);
   if (!sheet || sheet.getLastRow() <= 1) return { status: 'unknown' };
-  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues();
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === String(token)) {
-      return { status: String(rows[i][2]).toLowerCase() };
+      var status = String(rows[i][2]).toLowerCase();
+      return {
+        status:          status,
+        readonly:        status === 'readonly',
+        theme:           rows[i][7] ? String(rows[i][7]) : '',
+        language:        rows[i][8] ? String(rows[i][8]) : '',
+        activePatientId: rows[i][6] ? String(rows[i][6]) : ''
+      };
     }
   }
   return { status: 'unknown' };
 }
 
-function registerToken(token, label) {
-  if (!token) throw new Error('No token provided');
-  if (String(token).length > 100) throw new Error('Invalid token');
+function loginOrRegister(label, passwordHash, newUUID) {
+  if (!label)        throw new Error('Label is required');
+  if (!passwordHash) throw new Error('Password is required');
+  if (!newUUID)      throw new Error('No token provided');
+  if (String(newUUID).length > 100) throw new Error('Invalid token');
+
   var sheet = ss().getSheetByName(TAB.TOKENS);
   if (!sheet) throw new Error('Tokens sheet not found. Run setupSheet() first.');
-  // Idempotent — ignore duplicate registrations
-  if (sheet.getLastRow() > 1) {
-    var existing = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
-    for (var i = 0; i < existing.length; i++) {
-      if (String(existing[i][0]) === String(token)) return { success: true, message: 'Already registered' };
-    }
-  }
+
   var tz  = Session.getScriptTimeZone();
   var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
-  sheet.appendRow([token, label || 'Unnamed device', 'pending', now, '']);
-  return { success: true };
+
+  if (sheet.getLastRow() > 1) {
+    var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][1]) === String(label) && String(rows[i][5]) === String(passwordHash)) {
+        var status = String(rows[i][2]).toLowerCase();
+        if (status === 'approved') {
+          sheet.getRange(i + 2, 5).setValue(now);
+          return {
+            restored:        true,
+            token:           String(rows[i][0]),
+            status:          'approved',
+            readonly:        false,
+            theme:           rows[i][7] ? String(rows[i][7]) : '',
+            language:        rows[i][8] ? String(rows[i][8]) : '',
+            activePatientId: rows[i][6] ? String(rows[i][6]) : ''
+          };
+        }
+        if (status === 'revoked') {
+          return { restored: false, status: 'revoked' };
+        }
+        // pending — return existing token so the user can poll for approval
+        return { restored: false, status: 'pending', token: String(rows[i][0]) };
+      }
+    }
+  }
+
+  // No label+password match — register as new pending device
+  sheet.appendRow([newUUID, label, 'pending', now, '', passwordHash, '', '', '']);
+  return { restored: false, status: 'pending', token: newUUID };
 }
 
 function touchToken(token) {
@@ -428,10 +499,12 @@ function readInventoryConfig() {
   return result;
 }
 
-// Validates that the supplied token exists in the Tokens sheet with status "approved".
-function checkToken(supplied) {
+// allowReadonly: true on GET endpoints; false (default) on write endpoints.
+function checkToken(supplied, allowReadonly) {
   var result = validateToken(supplied);
-  if (result.status !== 'approved') throw new Error('Unauthorized');
+  if (result.status === 'approved') return;
+  if (allowReadonly && result.status === 'readonly') return;
+  throw new Error('Unauthorized');
 }
 
 function getSheet(name) {

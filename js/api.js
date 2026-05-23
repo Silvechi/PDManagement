@@ -86,7 +86,7 @@ const API = {
   updateInventory: (data) => apiPost('updateInventory', data),
 
   // Auth — these are public (no approved token required)
-  validateToken: (token) => apiGet('validateToken', { token }),
-  registerToken: (token, label) => apiGet('registerToken', { token, label }),
-  touchToken:    (token) => apiGet('touchToken',    { token }),
+  validateToken:   (token) => apiGet('validateToken', { token }),
+  loginOrRegister: (label, passwordHash, token) => apiPost('loginOrRegister', { label, passwordHash, token }),
+  touchToken:      (token) => apiGet('touchToken', { token }),
 };

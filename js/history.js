@@ -211,8 +211,10 @@ function _renderHistContent() {
 }
 
 function _bagColorForType(bagType) {
-  if (!bagType || !_histConfig) return null;
-  const item = _histConfig.find(i => bagDisplayName(i) === bagType || i.name === bagType);
+  if (!bagType) return null;
+  const cfg = _histConfig || getDashboardData()?.inventoryConfig;
+  if (!cfg) return null;
+  const item = cfg.find(i => bagDisplayName(i) === bagType || i.name === bagType);
   return item ? bagColorsFor(item).color : null;
 }
 

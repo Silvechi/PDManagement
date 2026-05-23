@@ -65,10 +65,11 @@ function doPost(e) {
     if (action === 'loginOrRegister') return jsonResponse(loginOrRegister(body.label, body.passwordHash, body.token));
     // Protected actions — readonly tokens not allowed on POST (writes)
     checkToken(body.token);
-    if (action === 'logMeasurement')  return jsonResponse(logMeasurement(body));
-    if (action === 'updateInventory') return jsonResponse(updateInventory(body));
-    if (action === 'addPatient')      return jsonResponse(addPatient(body));
-    if (action === 'editPatient')     return jsonResponse(editPatient(body));
+    if (action === 'logMeasurement')   return jsonResponse(logMeasurement(body));
+    if (action === 'updateInventory')  return jsonResponse(updateInventory(body));
+    if (action === 'addPatient')       return jsonResponse(addPatient(body));
+    if (action === 'editPatient')      return jsonResponse(editPatient(body));
+    if (action === 'savePreferences')  return jsonResponse(savePreferences(body));
     return jsonResponse({ error: 'Unknown POST action: ' + action });
   } catch (err) {
     return jsonResponse({ error: err.message });
@@ -508,6 +509,22 @@ function touchToken(token) {
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === String(token)) {
       sheet.getRange(i + 2, 5).setValue(now);
+      return { success: true };
+    }
+  }
+  return { success: false };
+}
+
+function savePreferences(data) {
+  if (!data.token) return { success: false };
+  var sheet = ss().getSheetByName(TAB.TOKENS);
+  if (!sheet || sheet.getLastRow() <= 1) return { success: false };
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(data.token)) {
+      var r = i + 2;
+      if (data.theme    !== undefined) sheet.getRange(r, 8).setValue(data.theme);
+      if (data.language !== undefined) sheet.getRange(r, 9).setValue(data.language);
       return { success: true };
     }
   }

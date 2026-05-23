@@ -92,7 +92,8 @@ const API = {
   editPatient:  (data) => apiPost('editPatient', data),
 
   // Auth — these are public (no approved token required)
-  validateToken:   (token) => apiGet('validateToken', { token }),
-  loginOrRegister: (label, passwordHash, token) => apiPost('loginOrRegister', { label, passwordHash, token }),
-  touchToken:      (token) => apiGet('touchToken', { token }),
+  validateToken:    (token) => apiGet('validateToken', { token }),
+  loginOrRegister:  (label, passwordHash, token) => apiPost('loginOrRegister', { label, passwordHash, token }),
+  touchToken:       (token) => apiGet('touchToken', { token }),
+  savePreferences:  (prefs) => apiPost('savePreferences', prefs),
 };

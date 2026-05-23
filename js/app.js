@@ -133,6 +133,7 @@ function applyTheme(theme) {
 
 function toggleTheme() {
   applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+  API.savePreferences({ theme: currentTheme }).catch(() => {});
 }
 
 // ============================================================

@@ -17,6 +17,7 @@ async function initAuth() {
     if (result.status === 'approved' || result.status === 'readonly') {
       setDeviceToken(storedToken);
       API.touchToken(storedToken).catch(() => {});
+      if (result.theme) applyTheme(result.theme);
       return true;
     }
     if (result.status === 'pending') {

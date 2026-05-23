@@ -1,0 +1,2 @@
+// Copy this file to config.js (gitignored) and paste your Apps Script Web App URL.
+window.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';

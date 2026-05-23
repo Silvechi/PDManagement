@@ -144,6 +144,8 @@ function buildNav() {
   const topbar   = document.getElementById('topbar');
   const botnav   = document.getElementById('bottom-nav');
   if (!topbar || !botnav) return;
+  topbar.style.display  = '';
+  botnav.style.display  = '';
 
   const navBtns = Object.entries(SCREENS).map(([key, cfg]) => {
     const icon = NAV_ICONS[key] || '';

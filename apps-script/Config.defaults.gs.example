@@ -1,0 +1,26 @@
+// ============================================================
+// Config.defaults.gs.example — Template for Config.defaults.gs
+// Copy this file to Config.defaults.gs (gitignored) and fill in
+// your own inventory items, prep checklist, and procedure steps.
+// Both files must be present in your Apps Script project.
+// ============================================================
+
+// Default config written by setupSheet() if Config tab is empty.
+// Columns: Category | Key/Name | Value/Min | Description | isBag | active | color | displayName
+var CONFIG_DEFAULTS = [
+  // Inventory bags — isBag=true, active=true, color, displayName
+  // ['inventory', 'Solution Bags 1.36%', '5', 'Description here.', true, true, '#E8A317', '1.36%'],
+  // ['inventory', 'Solution Bags 2.27%', '5', 'Description here.', true, true, '#2BA15A', '2.27%'],
+
+  // Inventory supplies — isBag=false, active=true
+  // ['inventory', 'Caps',       '10', 'Description here.', false, true, '', ''],
+  // ['inventory', 'Gauze Pads', '10', '',                  false, true, '', ''],
+
+  // Prep checklist items (columns E-H unused — leave empty)
+  // ['prep_items', '1', 'Item text', '', '', '', '', ''],
+  // ['prep_items', '2', 'Item text', 'Optional description', '', '', '', ''],
+
+  // Procedure steps (columns E-H unused — leave empty)
+  // ['prep_steps', '1',  'Step text', '', '', '', '', ''],
+  // ['prep_steps', '2',  'Step text', '', '', '', '', ''],
+];

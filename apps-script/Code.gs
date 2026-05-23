@@ -23,60 +23,9 @@ var HEADERS = {
   Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used']
 };
 
-// Default config written by setupSheet() if Config tab is empty.
-// Columns: Category | Key/Name | Value/Min | Description | isBag | active | color | displayName
-var CONFIG_DEFAULTS = [
-  // Inventory bags — isBag=true, active=true, color, displayName
-  ['inventory', 'Solution Bags 1.36%',     '5',  'שקית צהובה. בדוק תוקף לפני שימוש.',                              true, true, '#E8A317', '1.36%'    ],
-  ['inventory', 'Solution Bags 2.27%',     '5',  'שקית ירוקה. בדוק תוקף לפני שימוש.',                              true, true, '#2BA15A', '2.27%'    ],
-  ['inventory', 'Solution Bags Extraneal', '5',  'Extraneal 7.5% icodextrin. שקית ורודה. בדוק תוקף לפני שימוש.', true, true, '#D6347B', 'Extraneal'],
-  // Inventory supplies — isBag=false, active=true
-  ['inventory', 'Caps',                    '10', 'שני פקקים לכל החלפה.',                                            false, true, '', ''],
-  ['inventory', 'Gauze Pads',              '10', '',                                                                  false, true, '', ''],
-  ['inventory', 'Salt Water',              '2',  '',                                                                  false, true, '', ''],
-  ['inventory', 'Antibiotic Ointment',     '1',  'נספר בשפופרות. שפופרת מחזיקה כ-2–3 שבועות. הזמן מחדש כשנשארת שפופרת אחרונה.', false, true, '', ''],
-  ['inventory', 'Big Bandage',             '5',  '',                                                                  false, true, '', ''],
-  ['inventory', 'Small Bandage',           '5',  '',                                                                  false, true, '', ''],
-  // Prep checklist (columns E-H unused — leave empty)
-  ['prep_items', '1', 'מסכה כחולה',       '', '', '', '', ''],
-  ['prep_items', '2', '2 פקקים',           '', '', '', '', ''],
-  ['prep_items', '3', 'נייר מגבת',         '', '', '', '', ''],
-  ['prep_items', '4', 'מגבוני אלכוהול',   '', '', '', '', ''],
-  ['prep_items', '5', 'אלכוג\'ל',          '', '', '', '', ''],
-  ['prep_items', '6', 'קלאמפים כחולים',   '', '', '', '', ''],
-  ['prep_items', '7', 'שקית תמיסה',       'בדוק ריכוז, צבע, תקינות ותוקף.', '', '', '', ''],
-  // Procedure steps (columns E-H unused — leave empty)
-  ['prep_steps', '1',  'לשטוף ידיים',                                                                             '', '', '', '', ''],
-  ['prep_steps', '2',  'לנקות את העגלה עם מגבון אלכוהול',                                                        '', '', '', '', ''],
-  ['prep_steps', '3',  'להכין דברים על העגלה',                                                                    '', '', '', '', ''],
-  ['prep_steps', '4',  'לוודא את תקינות, צבע, ריכוז ותוקף השקית',                                                '', '', '', '', ''],
-  ['prep_steps', '5',  'לשים מסכה',                                                                               '', '', '', '', ''],
-  ['prep_steps', '6',  'לשים נייר מגבת על הרגל',                                                                 '', '', '', '', ''],
-  ['prep_steps', '7',  'לנקות את הצינור של הפורט עם מגבון אלכוהול',                                             '', '', '', '', ''],
-  ['prep_steps', '8',  'לחטא ידיים עם אלכוג\'ל',                                                                  '', '', '', '', ''],
-  ['prep_steps', '9',  'לאחוז בבטחה בפורט (בחלק התכלת בלבד) ובקצה הצינור בשקית (מתחת לעיגול)',                '', '', '', '', ''],
-  ['prep_steps', '10', 'לפתוח את הפקק של השקית ולזרוק',                                                         '', '', '', '', ''],
-  ['prep_steps', '11', 'לפתוח את הפקק של הפורט ולזרוק',                                                         '', '', '', '', ''],
-  ['prep_steps', '12', 'לחבר בצורה בטוחה וזהירה',                                                                '', '', '', '', ''],
-  ['prep_steps', '13', 'לקשור מגבון אלכוהול על החיבור',                                                          '', '', '', '', ''],
-  ['prep_steps', '14', 'לפתוח את ההברגה הלבנה כדי להתחיל ניקוז',                                                '', '', '', '', ''],
-  ['prep_steps', '15', 'להמתין עד סוף הניקוז',                                                                    '', '', '', '', ''],
-  ['prep_steps', '16', 'לסגור את ההברגה ולשים קלאמפ לכיוון הניקוז',                                             '', '', '', '', ''],
-  ['prep_steps', '17', 'לשבור את החסם הירוק לשני הצדדים',                                                        '', '', '', '', ''],
-  ['prep_steps', '18', 'לפתוח את ההברגה כדי להתחיל מילוי',                                                       '', '', '', '', ''],
-  ['prep_steps', '19', 'להמתין עד סוף המילוי',                                                                    '', '', '', '', ''],
-  ['prep_steps', '20', 'לסגור את ההברגה ולשים קלאמפ לכיוון המילוי',                                              '', '', '', '', ''],
-  ['prep_steps', '21', 'לשים מסכה',                                                                               '', '', '', '', ''],
-  ['prep_steps', '22', 'לחטא ידיים עם אלכוג\'ל',                                                                  '', '', '', '', ''],
-  ['prep_steps', '23', 'להוריד את מגבון האלכוהול מהחיבור',                                                       '', '', '', '', ''],
-  ['prep_steps', '24', 'לפתוח פקק אחד',                                                                           '', '', '', '', ''],
-  ['prep_steps', '25', 'לחטא שוב ידיים עם אלכוג\'ל',                                                             '', '', '', '', ''],
-  ['prep_steps', '26', 'לאחוז בחיבור, להבריג החוצה בזהירות ולשחרר את הצינור של השקית',                         '', '', '', '', ''],
-  ['prep_steps', '27', 'לקחת את הפקק הפתוח ולהבריג בבטחה על הפורט',                                             '', '', '', '', ''],
-  ['prep_steps', '28', 'ניקוי ואיסוף זבל',                                                                        '', '', '', '', ''],
-  ['prep_steps', '29', 'שקילה של השקית בלי לשקול את הצינור',                                                     '', '', '', '', ''],
-  ['prep_steps', '30', 'ריקון של השקית וזריקה לזבל',                                                             '', '', '', '', '']
-];
+// CONFIG_DEFAULTS is defined in Config.defaults.gs (gitignored).
+// Copy Config.defaults.gs.example → Config.defaults.gs and fill in your values,
+// then paste both files into your Apps Script project.
 
 // ============================================================
 // Entry points

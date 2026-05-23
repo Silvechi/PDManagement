@@ -148,6 +148,14 @@ function _renderHistContent() {
     }).join('');
 }
 
+function _bagColorForType(bagType) {
+  if (!bagType) return null;
+  const dash = typeof getDashboardData === 'function' ? getDashboardData() : null;
+  const cfg  = dash?.inventoryConfig || [];
+  const item = cfg.find(i => bagDisplayName(i) === bagType || i.name === bagType);
+  return item ? bagColorsFor(item).color : null;
+}
+
 function _buildHistRow(row) {
   const type   = row.measurementType || '';
   const labels = { drain_fill: 'Drain & Fill', drain: 'Drain only', fill: 'Fill only' };
@@ -166,8 +174,11 @@ function _buildHistRow(row) {
     detail = bagType;
   }
 
+  const color      = _bagColorForType(row.bagType);
+  const colorStyle = color ? ` style="--row-bag:${color}"` : '';
+
   return `
-    <div class="hist-row">
+    <div class="hist-row"${colorStyle}>
       <div class="hist-row-top">
         <span class="hist-time">${escHtml(time)}</span>
         <span class="hist-chip hist-chip-${type}">${escHtml(labels[type] || type)}</span>

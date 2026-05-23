@@ -790,8 +790,9 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
 .hist-row {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--row-bag, var(--border));
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  padding: 12px 14px 12px 12px;
   margin-bottom: 6px;
 }
 

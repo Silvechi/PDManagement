@@ -192,6 +192,7 @@ function getDashboard() {
   }
 
   return {
+    configVersion:   readConfigVersion(),
     inventoryConfig: inventoryConfig,
     inventory:       inventory,
     lowStockFlags:   lowStockArr.join(', '),
@@ -276,9 +277,22 @@ function getConfig() {
   };
 
   return {
+    version:   readConfigVersion(),
     prepItems: sortByNumKey(prepItems),
     prepSteps: sortByNumKey(prepSteps)
   };
+}
+
+function readConfigVersion() {
+  var configSheet = ss().getSheetByName(TAB.CONFIG);
+  if (!configSheet || configSheet.getLastRow() <= 1) return null;
+  var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 3).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === 'meta' && String(rows[i][1]) === 'lastUpdated') {
+      return rows[i][2] ? String(rows[i][2]) : null;
+    }
+  }
+  return null;
 }
 
 // ============================================================

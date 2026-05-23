@@ -22,21 +22,28 @@ async function renderPrep(container) {
   // In-memory hit (same session navigation)
   if (prepConfig) { renderPrepContent(prepConfig); _refreshPrepInBackground(); return; }
 
-  // localStorage hit — paint immediately, refresh silently
+  // localStorage hit — use it only if version matches dashboard's configVersion
+  const dashVersion = getDashboardData()?.configVersion || null;
   const cached = localStorage.getItem(_PREP_CACHE_KEY);
   if (cached) {
     try {
-      prepConfig = JSON.parse(cached);
-      renderPrepContent(prepConfig);
-      _refreshPrepInBackground();
-      return;
+      const entry = JSON.parse(cached);
+      const cacheValid = entry.data && (!dashVersion || entry.version === dashVersion);
+      if (cacheValid) {
+        prepConfig = entry.data;
+        renderPrepContent(prepConfig);
+        _refreshPrepInBackground();
+        return;
+      }
     } catch {}
   }
 
-  // No cache — blocking fetch
+  // No cache or stale — blocking fetch
   try {
-    prepConfig = await API.getConfig();
-    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify(prepConfig)); } catch {}
+    const fresh = await API.getConfig();
+    prepConfig = fresh;
+    const version = getDashboardData()?.configVersion || null;
+    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version, data: fresh })); } catch {}
     renderPrepContent(prepConfig);
   } catch (err) {
     document.getElementById('prep-loading').innerHTML =
@@ -47,7 +54,8 @@ async function renderPrep(container) {
 function _refreshPrepInBackground() {
   API.getConfig().then(fresh => {
     prepConfig = fresh;
-    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify(fresh)); } catch {}
+    const version = getDashboardData()?.configVersion || null;
+    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version, data: fresh })); } catch {}
   }).catch(() => {});
 }
 

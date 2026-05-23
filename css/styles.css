@@ -125,15 +125,19 @@ textarea, input { font: inherit; }
   min-height: 0;
 }
 
-/* ── Bottom nav ─────────────────────────────────────────────── */
+/* ── Bottom nav — fixed to viewport bottom ───────────────────── */
 .botnav {
   display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding: 6px 8px;
   padding-bottom: max(8px, env(safe-area-inset-bottom));
   gap: 4px;
-  flex-shrink: 0;
 }
 [data-theme="dark"] .botnav { background: #131316; border-color: rgba(255,255,255,0.06); }
 .botnav-btn {
@@ -147,9 +151,10 @@ textarea, input { font: inherit; }
 [data-theme="dark"] .botnav-btn { color: #918d84; }
 .botnav-btn svg { width: 22px; height: 22px; }
 
-/* phone: hide top nav */
+/* phone: hide top nav; pad content above fixed bottom nav */
 @container pd (max-width: 600px) {
   .topbar { display: none; }
+  .content { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
 }
 /* desktop: hide bottom nav */
 @container pd (min-width: 601px) {

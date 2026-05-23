@@ -127,7 +127,7 @@ textarea, input { font: inherit; }
 
 /* ── Bottom nav ─────────────────────────────────────────────── */
 .botnav {
-  display: none;
+  display: flex;
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding: 6px 8px;
@@ -147,10 +147,13 @@ textarea, input { font: inherit; }
 [data-theme="dark"] .botnav-btn { color: #918d84; }
 .botnav-btn svg { width: 22px; height: 22px; }
 
-/* phone: hide top nav, show bottom nav */
+/* phone: hide top nav */
 @container pd (max-width: 600px) {
   .topbar { display: none; }
-  .botnav { display: flex; }
+}
+/* desktop: hide bottom nav */
+@container pd (min-width: 601px) {
+  .botnav { display: none; }
 }
 
 /* ── Page layout ─────────────────────────────────────────────── */
@@ -974,6 +977,15 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   transition: background 0.15s;
 }
 .patient-chip:hover { background: var(--border); }
+
+/* ── Settings screen ─────────────────────────────────────── */
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0;
+}
+.settings-row + .settings-row { border-top: 1px solid var(--border); }
+.settings-row-label { font-size: 15px; font-weight: 500; color: var(--text); }
+.settings-row-sub { font-size: 13px; color: var(--text-3); margin-top: 2px; }
 
 /* ── Users screen ─────────────────────────────────────────── */
 .user-card {

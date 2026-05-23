@@ -63,6 +63,67 @@ function updatePatientChip() {
 }
 
 // ============================================================
+// Settings screen
+// ============================================================
+
+async function renderSettings(container) {
+  container.innerHTML = `<div class="page"><div class="loading-state">Loading…</div></div>`;
+  try {
+    const result = await API.getPatients();
+    _patientsCache = { version: result.version, patients: result.patients };
+    try { localStorage.setItem(PATIENTS_CACHE_KEY, JSON.stringify(_patientsCache)); } catch {}
+  } catch {}
+  _renderSettingsPage(container, _patientsCache?.patients || []);
+}
+
+function _renderSettingsPage(container, patients) {
+  const activePatient = patients.find(p => p.patientId === _activePatientId);
+  const theme = typeof currentTheme !== 'undefined' ? currentTheme : 'light';
+  container.innerHTML = `
+    <div class="page">
+      <div class="page-head">
+        <h1 class="page-title">Settings</h1>
+      </div>
+
+      <section class="card">
+        <div class="card-label">Appearance</div>
+        <div class="settings-row">
+          <span class="settings-row-label">Theme</span>
+          <div class="tab-pill" style="width:auto">
+            <button class="tab-pill-btn${theme !== 'dark' ? ' active' : ''}"
+                    onclick="_settingsSetTheme('light')">Light</button>
+            <button class="tab-pill-btn${theme === 'dark' ? ' active' : ''}"
+                    onclick="_settingsSetTheme('dark')">Dark</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-label">Active User</div>
+        ${activePatient
+          ? `<div class="settings-row">
+               <div>
+                 <div class="settings-row-label">${escHtml(activePatient.name)}</div>
+                 ${activePatient.dob ? `<div class="settings-row-sub">DOB: ${escHtml(activePatient.dob)}</div>` : ''}
+               </div>
+             </div>`
+          : `<p class="no-data" style="margin:8px 0">No user selected.</p>`}
+        <button class="ghost-btn full-width" style="margin-top:10px"
+                onclick="renderUsers(document.getElementById('screen-container'))">
+          Manage users →
+        </button>
+      </section>
+    </div>
+  `;
+}
+
+function _settingsSetTheme(theme) {
+  applyTheme(theme);
+  API.savePreferences({ theme }).catch(() => {});
+  _renderSettingsPage(document.getElementById('screen-container'), _patientsCache?.patients || []);
+}
+
+// ============================================================
 // Users screen — list
 // ============================================================
 
@@ -83,8 +144,9 @@ function _renderUsersList(container, patients) {
   container.innerHTML = `
     <div class="page">
       <div class="page-head">
+        <button class="ghost-btn" onclick="renderSettings(document.getElementById('screen-container'))">← Back</button>
         <div>
-          <h1 class="page-title">Users</h1>
+          <h1 class="page-title">Manage Users</h1>
           <div class="page-sub">${active.length} active</div>
         </div>
       </div>

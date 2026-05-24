@@ -77,7 +77,11 @@ test.describe('Log Measurements', () => {
   test('clicking a drum item changes the value', async ({ page }) => {
     // Click item 5 in the integer picker
     await page.locator('#bag-int-dp .drum-item[data-v="5"]').click();
-    // The clicked item should now have opacity 1
+    // Wait for scroll animation to settle, then check opacity
+    await page.waitForFunction(() => {
+      const el = document.querySelector('#bag-int-dp .drum-item[data-v="5"]');
+      return el && parseFloat(el.style.opacity) === 1;
+    }, { timeout: 2000 });
     const opacity = await page.locator('#bag-int-dp .drum-item[data-v="5"]').evaluate(
       el => parseFloat(el.style.opacity)
     );

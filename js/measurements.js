@@ -9,10 +9,10 @@ let _nowPillDate = null;
 function _nowFmt(d) {
   const today = new Date(); today.setHours(0,0,0,0);
   const dd    = new Date(d); dd.setHours(0,0,0,0);
-  const day   = dd.getTime() === today.getTime() ? 'Today'
-    : dd.getTime() === today.getTime() - 86400000 ? 'Yesterday'
-    : new Date(d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const time  = new Date(d).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const day   = dd.getTime() === today.getTime() ? t('now.today')
+    : dd.getTime() === today.getTime() - 86400000 ? t('now.yesterday')
+    : new Date(d).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' });
+  const time  = new Date(d).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' });
   return `${day} · ${time}`;
 }
 
@@ -36,15 +36,15 @@ function _renderNowPill(containerId, open) {
     <div class="now-pill-wrap">
       <button class="now-pill" id="now-pill-btn">
         <span class="now-dot"></span>
-        <span><strong>Now</strong> · ${display}</span>
+        <span><strong>${t('now.now')}</strong> · ${display}</span>
         <span class="now-edit-icon">${EDIT_ICON}</span>
       </button>
       ${open ? `
       <div class="now-edit-pop">
         <input type="datetime-local" id="now-dt-input" value="${_nowToInput(_nowPillDate)}">
         <div class="now-pop-row">
-          <button class="ghost-btn" id="now-reset-btn">Reset to now</button>
-          <button class="primary-btn sm" id="now-done-btn">Done</button>
+          <button class="ghost-btn" id="now-reset-btn">${t('now.reset')}</button>
+          <button class="primary-btn sm" id="now-done-btn">${t('now.done')}</button>
         </div>
       </div>
       ` : ''}
@@ -82,15 +82,15 @@ function nowTimeStr() {
 let _measCardsBuilt = {};
 
 const MEAS_TABS = [
-  { key: 'bag',    label: 'Drainage', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 2.5s7 7.5 7 12.5a7 7 0 01-14 0c0-5 7-12.5 7-12.5z"/></svg>` },
-  { key: 'weight', label: 'Weight',   icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>` },
-  { key: 'bp',     label: 'BP',       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M3 12h3l2-5 3 10 2-7 2 4h6"/></svg>` },
+  { key: 'bag',    tKey: 'meas.tab.drainage', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 2.5s7 7.5 7 12.5a7 7 0 01-14 0c0-5 7-12.5 7-12.5z"/></svg>` },
+  { key: 'weight', tKey: 'meas.tab.weight',   icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>` },
+  { key: 'bp',     tKey: 'meas.tab.bp',       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M3 12h3l2-5 3 10 2-7 2 4h6"/></svg>` },
 ];
 
 const PROC_TYPES = [
-  { key: 'both',  label: 'Drain + Fill' },
-  { key: 'drain', label: 'Drain only'   },
-  { key: 'fill',  label: 'Fill only'    },
+  { key: 'both',  tKey: 'meas.proc.both'  },
+  { key: 'drain', tKey: 'meas.proc.drain' },
+  { key: 'fill',  tKey: 'meas.proc.fill'  },
 ];
 
 const CHECK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M5 12l5 5L20 7"/></svg>`;
@@ -118,16 +118,16 @@ function renderMeasurements(container, initialTab) {
     <div class="page">
       <div class="page-head">
         <div>
-          <h1 class="page-title">Log</h1>
-          <div class="page-sub">Record an exchange or measurement</div>
+          <h1 class="page-title">${t('meas.title')}</h1>
+          <div class="page-sub">${t('meas.sub')}</div>
         </div>
         <div id="now-pill-container"></div>
       </div>
 
       <div class="tab-pill" id="meas-tab-pill">
-        ${MEAS_TABS.map(t => `
-          <button class="tab-pill-btn" id="meas-tab-${t.key}" onclick="switchMeasCard('${t.key}')">
-            ${t.icon}<span>${t.label}</span>
+        ${MEAS_TABS.map(tab => `
+          <button class="tab-pill-btn" id="meas-tab-${tab.key}" onclick="switchMeasCard('${tab.key}')">
+            ${tab.icon}<span>${t(tab.tKey)}</span>
           </button>
         `).join('')}
       </div>
@@ -143,11 +143,11 @@ function renderMeasurements(container, initialTab) {
 }
 
 function switchMeasCard(key) {
-  MEAS_TABS.forEach(t => {
-    const card = document.getElementById(`m-${t.key}-card`);
-    const btn  = document.getElementById(`meas-tab-${t.key}`);
-    if (card) card.style.display = t.key === key ? '' : 'none';
-    if (btn)  btn.classList.toggle('active', t.key === key);
+  MEAS_TABS.forEach(tab => {
+    const card = document.getElementById(`m-${tab.key}-card`);
+    const btn  = document.getElementById(`meas-tab-${tab.key}`);
+    if (card) card.style.display = tab.key === key ? '' : 'none';
+    if (btn)  btn.classList.toggle('active', tab.key === key);
   });
   // Build card lazily — drum scroll-snap requires the element to be visible
   if (!_measCardsBuilt[key]) {
@@ -186,7 +186,7 @@ function buildBagCard() {
               onclick="selectBagItem(${i})">
         <span class="bag-dot lg"></span>
         <span class="bag-pick-pct">${escHtml(label)}</span>
-        <span class="bag-pick-stock">${stock} in stock</span>
+        <span class="bag-pick-stock">${t('meas.in_stock', { count: stock })}</span>
         ${sel ? `<span class="bag-pick-check">${CHECK_ICON}</span>` : ''}
       </button>
     `;
@@ -195,16 +195,16 @@ function buildBagCard() {
   card.innerHTML = `
     <section class="card">
       <div class="card-head">
-        <h2 class="card-title">Exchange type</h2>
+        <h2 class="card-title">${t('meas.exchange_type')}</h2>
         ${_dash?.lastExchange
-          ? `<p class="card-sub">Last ${timeAgo(_dash.lastExchange.date, _dash.lastExchange.time)}</p>`
+          ? `<p class="card-sub">${t('meas.last', { ago: timeAgo(_dash.lastExchange.date, _dash.lastExchange.time) })}</p>`
           : ''}
       </div>
       <div class="seg-row">
         ${PROC_TYPES.map(p => `
           <button class="seg${p.key === _procType ? ' active' : ''}" id="proc-btn-${p.key}"
                   data-proc="${p.key}" onclick="switchProcType('${p.key}')">
-            ${p.label}
+            ${t(p.tKey)}
           </button>
         `).join('')}
       </div>
@@ -212,8 +212,8 @@ function buildBagCard() {
 
     <section class="card" id="bag-drain-section">
       <div class="card-head">
-        <h2 class="card-title">Drained (bag out)</h2>
-        <p class="card-sub">Scroll wheels to set weight</p>
+        <h2 class="card-title">${t('meas.drained')}</h2>
+        <p class="card-sub">${t('meas.scroll_wheels')}</p>
       </div>
       <div class="drum-wrap">
         <div class="drum-picker" id="drain-drum-picker">
@@ -227,14 +227,14 @@ function buildBagCard() {
 
     <section class="card" id="bag-fill-section">
       <div class="card-head">
-        <h2 class="card-title">New bag going in</h2>
-        <p class="card-sub">Tap to select</p>
+        <h2 class="card-title">${t('meas.new_bag')}</h2>
+        <p class="card-sub">${t('meas.tap_select')}</p>
       </div>
       <div class="bag-pick">${bagCards}</div>
     </section>
 
     <section class="card">
-      <div class="card-head"><h2 class="card-title">Supplies used</h2></div>
+      <div class="card-head"><h2 class="card-title">${t('meas.supplies_used')}</h2></div>
       <div class="used-row">
         <div class="used-cell">
           <div class="stepper">
@@ -242,7 +242,7 @@ function buildBagCard() {
             <span class="stepper-val" id="usage-bags-val">1</span>
             <button onclick="adjustUsage('bags', 1)">${PLUS_ICON}</button>
           </div>
-          <span class="used-label">bags</span>
+          <span class="used-label">${t('meas.bags')}</span>
         </div>
         <div class="used-cell">
           <div class="stepper">
@@ -250,23 +250,23 @@ function buildBagCard() {
             <span class="stepper-val" id="usage-caps-val">1</span>
             <button onclick="adjustUsage('caps', 1)">${PLUS_ICON}</button>
           </div>
-          <span class="used-label">caps</span>
+          <span class="used-label">${t('meas.caps')}</span>
         </div>
       </div>
     </section>
 
     <section class="card">
       <div class="card-head">
-        <h2 class="card-title">Notes</h2>
-        <p class="card-sub">Optional — symptoms, fluid color, etc.</p>
+        <h2 class="card-title">${t('common.notes')}</h2>
+        <p class="card-sub">${t('meas.notes_sub')}</p>
       </div>
-      <textarea class="notes" id="bag-notes" placeholder="Anything to remember…"></textarea>
+      <textarea class="notes" id="bag-notes" placeholder="${t('meas.notes_ph')}"></textarea>
     </section>
 
     <div id="bag-feedback" class="feedback" aria-live="polite"></div>
 
     <button class="primary-btn lg w-full" id="bag-submit" onclick="submitBag()">
-      Save Drain + Fill
+      ${t('meas.save.both')}
     </button>
   `;
 
@@ -289,8 +289,7 @@ function switchProcType(key) {
   if (fillSection)  fillSection.style.display  = key !== 'drain' ? '' : 'none';
   const submitBtn = document.getElementById('bag-submit');
   if (submitBtn) {
-    const labels = { both: 'Save Drain + Fill', drain: 'Save Drain only', fill: 'Save Fill only' };
-    submitBtn.textContent = labels[key] || 'Save';
+    submitBtn.textContent = t('meas.save.' + key) || t('meas.save.both');
   }
   // Drain-only uses 0 bags; reset to 1 when fill is involved
   const bagsEl = document.getElementById('usage-bags-val');
@@ -340,7 +339,7 @@ async function submitBag() {
   const notes    = document.getElementById('bag-notes')?.value.trim() || '';
 
   const btn = document.getElementById('bag-submit');
-  btn.disabled = true; btn.textContent = 'Saving…';
+  btn.disabled = true; btn.textContent = t('common.saving');
   setFeedback('bag', '', '');
 
   try {
@@ -369,8 +368,7 @@ async function submitBag() {
       }
     }
 
-    const labels = { both: 'Drainage saved.', drain: 'Drain saved.', fill: 'Fill saved.' };
-    setFeedback('bag', labels[procType] || 'Saved.', 'success');
+    setFeedback('bag', t('meas.saved.' + procType) || t('meas.saved.both'), 'success');
 
     // Reset
     _bagItem   = _activeBagItems[0] || null;
@@ -385,7 +383,7 @@ async function submitBag() {
     _nowPillDate = new Date();
     buildNowPill('now-pill-container');
   } catch (err) {
-    setFeedback('bag', 'Error: ' + err.message, 'error');
+    setFeedback('bag', t('common.error', { msg: err.message }), 'error');
   } finally {
     btn.disabled = false;
     switchProcType(_procType || 'both');
@@ -401,8 +399,8 @@ function buildWeightCard() {
   card.innerHTML = `
     <section class="card">
       <div class="card-head">
-        <h2 class="card-title">Body weight</h2>
-        <p class="card-sub">Empty bladder, no shoes — same time each day</p>
+        <h2 class="card-title">${t('meas.weight.title')}</h2>
+        <p class="card-sub">${t('meas.weight.sub')}</p>
       </div>
       <div class="drum-wrap">
         <div class="drum-picker">
@@ -417,14 +415,14 @@ function buildWeightCard() {
     </section>
 
     <section class="card">
-      <div class="card-head"><h2 class="card-title">Notes</h2></div>
-      <textarea class="notes" id="wt-notes" placeholder="Optional…"></textarea>
+      <div class="card-head"><h2 class="card-title">${t('common.notes')}</h2></div>
+      <textarea class="notes" id="wt-notes" placeholder="${t('common.optional')}"></textarea>
     </section>
 
     <div id="wt-feedback" class="feedback" aria-live="polite"></div>
 
     <button class="primary-btn lg w-full" id="wt-submit" onclick="submitWeight()">
-      Save weight
+      ${t('meas.weight.save')}
     </button>
   `;
 
@@ -437,12 +435,12 @@ function buildWeightCard() {
   }
 
   const h   = Math.floor(defaultKg / 100);
-  const t   = Math.floor((defaultKg % 100) / 10);
+  const tV  = Math.floor((defaultKg % 100) / 10);
   const o   = Math.floor(defaultKg % 10);
   const dec = Math.round((defaultKg * 10) % 10);
 
   _wtH   = new DrumPicker(document.getElementById('wt-h-dp'),   { min: 0, max: 2, value: h,   label: 'weight hundreds' });
-  _wtT   = new DrumPicker(document.getElementById('wt-t-dp'),   { min: 0, max: 9, value: t,   label: 'weight tens' });
+  _wtT   = new DrumPicker(document.getElementById('wt-t-dp'),   { min: 0, max: 9, value: tV,  label: 'weight tens' });
   _wtO   = new DrumPicker(document.getElementById('wt-o-dp'),   { min: 0, max: 9, value: o,   label: 'weight ones' });
   _wtDec = new DrumPicker(document.getElementById('wt-dec-dp'), { min: 0, max: 9, value: dec, label: 'weight tenths' });
 }
@@ -453,19 +451,19 @@ async function submitWeight() {
   const weight = _wtH.value * 100 + _wtT.value * 10 + _wtO.value + _wtDec.value / 10;
 
   const btn = document.getElementById('wt-submit');
-  btn.disabled = true; btn.textContent = 'Saving…';
+  btn.disabled = true; btn.textContent = t('common.saving');
   setFeedback('wt', '', '');
 
   try {
     await API.logMeasurement({ date, time, weight, measurementType: 'weight', patientId: getActivePatientId() });
     invalidateDashboardCache();
-    setFeedback('wt', `Weight saved · ${weight.toFixed(1)} kg`, 'success');
+    setFeedback('wt', t('meas.weight.saved', { weight: weight.toFixed(1) }), 'success');
     _nowPillDate = new Date();
     buildNowPill('now-pill-container');
   } catch (err) {
-    setFeedback('wt', 'Error: ' + err.message, 'error');
+    setFeedback('wt', t('common.error', { msg: err.message }), 'error');
   } finally {
-    btn.disabled = false; btn.textContent = 'Save weight';
+    btn.disabled = false; btn.textContent = t('meas.weight.save');
   }
 }
 
@@ -478,7 +476,7 @@ function buildBPCard() {
   card.innerHTML = `
     <section class="card">
       <div class="card-head">
-        <h2 class="card-title">Blood pressure</h2>
+        <h2 class="card-title">${t('meas.bp.title')}</h2>
       </div>
       <div class="drum-wrap">
         <div class="drum-picker bp-drum">
@@ -496,19 +494,19 @@ function buildBPCard() {
       </div>
       <div class="bp-status ok" id="bp-status-row">
         <span class="bp-status-dot"></span>
-        <span id="bp-status-text">Within healthy range</span>
+        <span id="bp-status-text">${t('meas.bp.healthy')}</span>
       </div>
     </section>
 
     <section class="card">
-      <div class="card-head"><h2 class="card-title">Notes</h2></div>
-      <textarea class="notes" id="bp-notes" placeholder="Optional…"></textarea>
+      <div class="card-head"><h2 class="card-title">${t('common.notes')}</h2></div>
+      <textarea class="notes" id="bp-notes" placeholder="${t('common.optional')}"></textarea>
     </section>
 
     <div id="bp-feedback" class="feedback" aria-live="polite"></div>
 
     <button class="primary-btn lg w-full" id="bp-submit" onclick="submitBP()">
-      Save BP
+      ${t('meas.bp.save')}
     </button>
   `;
 
@@ -548,10 +546,10 @@ function updateBpStatus() {
   if (sys === 0 && dia === 0) { row.style.display = 'none'; return; }
   row.style.display = '';
   let cls, label;
-  if (sys < 90 || dia < 60)        { cls = 'warn'; label = 'Lower than usual range'; }
-  else if (sys > 140 || dia > 90)  { cls = 'warn'; label = 'Higher than usual range'; }
-  else if (sys > 130 || dia > 85)  { cls = 'mid';  label = 'Slightly elevated'; }
-  else                             { cls = 'ok';   label = 'Within healthy range'; }
+  if (sys < 90 || dia < 60)        { cls = 'warn'; label = t('meas.bp.low'); }
+  else if (sys > 140 || dia > 90)  { cls = 'warn'; label = t('meas.bp.high'); }
+  else if (sys > 130 || dia > 85)  { cls = 'mid';  label = t('meas.bp.elevated'); }
+  else                             { cls = 'ok';   label = t('meas.bp.healthy'); }
   row.className = 'bp-status ' + cls;
   text.textContent = label;
 }
@@ -562,19 +560,19 @@ async function submitBP() {
   const time = nowTimeStr();
 
   const btn = document.getElementById('bp-submit');
-  btn.disabled = true; btn.textContent = 'Saving…';
+  btn.disabled = true; btn.textContent = t('common.saving');
   setFeedback('bp', '', '');
 
   try {
     await API.logMeasurement({ date, time, bpSystolic: sys, bpDiastolic: dia, measurementType: 'bp', patientId: getActivePatientId() });
     invalidateDashboardCache();
-    setFeedback('bp', `BP saved · ${sys}/${dia} mmHg`, 'success');
+    setFeedback('bp', t('meas.bp.saved', { sys, dia }), 'success');
     _nowPillDate = new Date();
     buildNowPill('now-pill-container');
   } catch (err) {
-    setFeedback('bp', 'Error: ' + err.message, 'error');
+    setFeedback('bp', t('common.error', { msg: err.message }), 'error');
   } finally {
-    btn.disabled = false; btn.textContent = 'Save BP';
+    btn.disabled = false; btn.textContent = t('meas.bp.save');
   }
 }
 

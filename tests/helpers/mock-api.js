@@ -90,7 +90,8 @@ const DEFAULT_RESPONSES = {
   getConfig:       CONFIG_RESPONSE,
   // Mutations
   logMeasurement:  { success: true, message: 'Measurement logged.' },
-  updateInventory: { success: true, message: 'Inventory updated.' }
+  updateInventory: { success: true, message: 'Inventory updated.' },
+  savePreferences: { success: true }
 };
 
 /**
@@ -104,8 +105,11 @@ export async function setupMockApi(page, overrides = {}) {
   const responses = { ...DEFAULT_RESPONSES, ...overrides };
 
   await page.addInitScript((mockUrl) => {
-    window.APPS_SCRIPT_URL   = mockUrl;
-    window.APPS_SCRIPT_TOKEN = 'test-token';
+    // Use getter/setter so config.js (gitignored, local-only) cannot override these values.
+    // configurable:true is required so api.js can still declare `const APPS_SCRIPT_URL`
+    // without triggering ECMAScript's HasRestrictedGlobalProperty SyntaxError.
+    Object.defineProperty(window, 'APPS_SCRIPT_URL',   { get: () => mockUrl,     set: () => {}, configurable: true });
+    Object.defineProperty(window, 'APPS_SCRIPT_TOKEN', { get: () => 'test-token', set: () => {}, configurable: true });
     // Pre-set device token so initAuth() skips the registration screen
     localStorage.setItem('pd_device_token_v1', 'test-token');
     // Pre-set active patient so we land directly on dashboard

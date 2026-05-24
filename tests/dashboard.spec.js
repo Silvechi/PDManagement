@@ -108,7 +108,7 @@ test.describe('Dashboard', () => {
 
   test('renders BP average in vitals meta', async ({ page }) => {
     await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
-    await expect(page.locator('.vitals-meta')).toContainText('128/82');
+    await expect(page.locator('.vitals-meta').first()).toContainText('128/82');
   });
 
   // ── Weight sparkline ──────────────────────────────────────

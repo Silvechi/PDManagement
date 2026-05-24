@@ -13,6 +13,7 @@ A web-based medical tracking platform for peritoneal dialysis patients. Tracks d
 | **Inventory** | Adjust supply counts with `+` / `−` buttons. Item list, low-stock thresholds, bag colours, and display names are all driven by the Config sheet. |
 | **History** | Chronological log of exchange entries (drain/fill). Configurable date range with from/to date pickers and 1W/1M/3M presets. Newest entries first. |
 | **Prep** | Static reference: what to gather before the procedure and the procedure steps. Both read from the Config sheet. Tap any item to reveal a tooltip explanation. |
+| **Settings** | Light/dark theme toggle, EN/HE language switcher, active user display and user management. |
 
 ---
 
@@ -55,6 +56,7 @@ The token is stored in both `localStorage` (persists across sessions) and the UR
 - **Never silent-fail**: all API calls show visible feedback on error, with an offline banner if the server is unreachable
 - **Config-driven**: inventory items, thresholds, bag colours, prep checklist, and procedure steps all live in the `Config` sheet — no code changes needed to update them
 - **Responsive**: single-column on mobile, card grid on tablet/desktop; nav moves from bottom to top on wide screens
+- **Multilingual / RTL**: full Hebrew translation with right-to-left layout; language switchable at runtime and persisted per device
 
 ---
 
@@ -72,6 +74,7 @@ PDManagement/
 │
 ├── js/
 │   ├── config.js               Local config — sets APPS_SCRIPT_URL (gitignored)
+│   ├── i18n.js                 Translation strings (EN/HE) + t(), locale(), setLang() — loaded first
 │   ├── app.js                  Screen routing, nav, global init, shared helpers
 │   ├── api.js                  fetch() wrapper, timeout, device token, API object
 │   ├── auth.js                 Device token auth — registration, pending, denied screens
@@ -80,7 +83,8 @@ PDManagement/
 │   ├── measurements.js         Three-card measurement log with toggle + drum pickers
 │   ├── inventory.js            Inventory display + +/− adjustments + save
 │   ├── history.js              Exchange history log with date range picker
-│   └── prep.js                 Prep screen (checklist + procedure steps)
+│   ├── prep.js                 Prep screen (checklist + procedure steps)
+│   └── users.js                Settings screen, user management, language/theme switcher
 │
 ├── apps-script/
 │   └── Code.gs                 Google Apps Script backend (all endpoints)
@@ -90,6 +94,7 @@ PDManagement/
     ├── dashboard.spec.js
     ├── measurements.spec.js
     ├── inventory.spec.js
+    ├── i18n.spec.js
     ├── timer.spec.js
     └── navigation.spec.js
 ```
@@ -171,14 +176,18 @@ All requests go to the single Apps Script Web App URL.
 
 | Method | `action` | Auth required | Behaviour |
 |---|---|---|---|
-| `GET` | `validateToken` | No | Check if a device token is approved/pending/revoked |
-| `GET` | `registerToken` | No | Add a new device token as `pending` |
+| `GET` | `validateToken` | No | Check if a device token is approved/pending/revoked — returns `status`, `theme`, `language` |
+| `POST` | `loginOrRegister` | No | Register new device or restore existing one by label + password hash |
 | `GET` | `touchToken` | No | Update last-used timestamp for a token |
 | `GET` | `getDashboard` | Yes | Latest inventory + 7-day stats + last exchange |
 | `GET` | `getHistory` | Yes | Exchange rows filtered by `from`/`to` date params |
 | `GET` | `getConfig` | Yes | Prep items and procedure steps from Config tab |
+| `GET` | `getPatients` | Yes | Patient list with `version` for cache invalidation |
+| `POST` | `addPatient` | Yes | Add a new patient, returns generated `patientId` |
+| `POST` | `editPatient` | Yes | Update name/DOB/comment/active on an existing patient |
 | `POST` | `logMeasurement` | Yes | Append row to `Daily_Measurements` |
 | `POST` | `updateInventory` | Yes | Append rows to `Inventory` (one per item) |
+| `POST` | `savePreferences` | Yes | Save per-device preferences (theme, language) to Tokens sheet |
 
 ---
 
@@ -235,3 +244,4 @@ Tests mock the Apps Script API via `page.route()` — no real Google account is 
 |---|---|---|
 | Bug #7 | Dashboard makes two `getDashboard` calls on startup | Low |
 | Bug #8 | Dashboard tab can't be re-tapped to refresh data | Low |
+| i18n gap | `timeAgo()` in `app.js` outputs English strings (`'5m ago'`, `'2h ago'`) — shows up in "Last exchange" and "Last {ago}" on the Log screen | Low |

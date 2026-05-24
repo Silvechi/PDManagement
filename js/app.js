@@ -147,9 +147,10 @@ function buildNav() {
   topbar.style.display  = '';
   botnav.style.display  = 'flex';
 
-  const navBtns = Object.entries(SCREENS).map(([key, cfg]) => {
-    const icon = NAV_ICONS[key] || '';
-    return { key, label: cfg.label, icon };
+  const navBtns = Object.entries(SCREENS).map(([key]) => {
+    const icon  = NAV_ICONS[key] || '';
+    const label = t('nav.' + key);
+    return { key, label, icon };
   });
 
   // Topbar: nav buttons + patient chip + theme toggle
@@ -165,7 +166,7 @@ function buildNav() {
     <div class="topbar-actions">
       <button class="patient-chip" id="patient-chip" onclick="navigateTo('users')"
               aria-label="Switch user" title="Active user">
-        ${getActivePatientName() || 'Select user'}
+        ${getActivePatientName() || t('users.select')}
       </button>
       <button class="theme-toggle-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode">
         ${MOON_ICON}

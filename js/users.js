@@ -59,7 +59,7 @@ function setActivePatient(patientId, name) {
 function updatePatientChip() {
   const chip = document.getElementById('patient-chip');
   if (!chip) return;
-  chip.textContent = _activePatientName || 'Select user';
+  chip.textContent = _activePatientName || t('users.select');
 }
 
 // ============================================================
@@ -67,7 +67,7 @@ function updatePatientChip() {
 // ============================================================
 
 async function renderSettings(container) {
-  container.innerHTML = `<div class="page"><div class="loading-state">Loading…</div></div>`;
+  container.innerHTML = `<div class="page"><div class="loading-state">${t('common.loading')}</div></div>`;
   try {
     const result = await API.getPatients();
     _patientsCache = { version: result.version, patients: result.patients };
@@ -82,35 +82,44 @@ function _renderSettingsPage(container, patients) {
   container.innerHTML = `
     <div class="page">
       <div class="page-head">
-        <h1 class="page-title">Settings</h1>
+        <h1 class="page-title">${t('settings.title')}</h1>
       </div>
 
       <section class="card">
-        <div class="card-label">Appearance</div>
+        <div class="card-label">${t('settings.appearance')}</div>
         <div class="settings-row">
-          <span class="settings-row-label">Theme</span>
+          <span class="settings-row-label">${t('settings.theme')}</span>
           <div class="tab-pill" style="width:auto">
             <button class="tab-pill-btn${theme !== 'dark' ? ' active' : ''}"
-                    onclick="_settingsSetTheme('light')">Light</button>
+                    onclick="_settingsSetTheme('light')">${t('settings.light')}</button>
             <button class="tab-pill-btn${theme === 'dark' ? ' active' : ''}"
-                    onclick="_settingsSetTheme('dark')">Dark</button>
+                    onclick="_settingsSetTheme('dark')">${t('settings.dark')}</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">${t('settings.language')}</span>
+          <div class="tab-pill" style="width:auto">
+            <button class="tab-pill-btn${currentLang !== 'he' ? ' active' : ''}"
+                    onclick="_settingsSetLang('en')">English</button>
+            <button class="tab-pill-btn${currentLang === 'he' ? ' active' : ''}"
+                    onclick="_settingsSetLang('he')">עברית</button>
           </div>
         </div>
       </section>
 
       <section class="card">
-        <div class="card-label">Active User</div>
+        <div class="card-label">${t('settings.active_user')}</div>
         ${activePatient
           ? `<div class="settings-row">
                <div>
                  <div class="settings-row-label">${escHtml(activePatient.name)}</div>
-                 ${activePatient.dob ? `<div class="settings-row-sub">DOB: ${escHtml(activePatient.dob)}</div>` : ''}
+                 ${activePatient.dob ? `<div class="settings-row-sub">${t('settings.dob', { dob: escHtml(activePatient.dob) })}</div>` : ''}
                </div>
              </div>`
-          : `<p class="no-data" style="margin:8px 0">No user selected.</p>`}
+          : `<p class="no-data" style="margin:8px 0">${t('settings.no_user')}</p>`}
         <button class="ghost-btn full-width" style="margin-top:10px"
                 onclick="renderUsers(document.getElementById('screen-container'))">
-          Manage users →
+          ${t('settings.manage_users')}
         </button>
       </section>
     </div>
@@ -123,19 +132,25 @@ function _settingsSetTheme(theme) {
   _renderSettingsPage(document.getElementById('screen-container'), _patientsCache?.patients || []);
 }
 
+function _settingsSetLang(lang) {
+  setLang(lang);
+  API.savePreferences({ language: lang }).catch(() => {});
+  _renderSettingsPage(document.getElementById('screen-container'), _patientsCache?.patients || []);
+}
+
 // ============================================================
 // Users screen — list
 // ============================================================
 
 async function renderUsers(container) {
-  container.innerHTML = `<div class="page"><div class="loading-state">Loading…</div></div>`;
+  container.innerHTML = `<div class="page"><div class="loading-state">${t('common.loading')}</div></div>`;
   try {
     const result = await API.getPatients();
     _patientsCache = { version: result.version, patients: result.patients };
     try { localStorage.setItem(PATIENTS_CACHE_KEY, JSON.stringify(_patientsCache)); } catch {}
     _renderUsersList(container, result.patients);
   } catch (err) {
-    container.innerHTML = `<div class="page"><div class="feedback feedback-error">Failed to load: ${escHtml(err.message)}</div></div>`;
+    container.innerHTML = `<div class="page"><div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div></div>`;
   }
 }
 
@@ -144,19 +159,19 @@ function _renderUsersList(container, patients) {
   container.innerHTML = `
     <div class="page">
       <div class="page-head">
-        <button class="ghost-btn" onclick="renderSettings(document.getElementById('screen-container'))">← Back</button>
+        <button class="ghost-btn" onclick="renderSettings(document.getElementById('screen-container'))">${t('common.back')}</button>
         <div>
-          <h1 class="page-title">Manage Users</h1>
-          <div class="page-sub">${active.length} active</div>
+          <h1 class="page-title">${t('users.title')}</h1>
+          <div class="page-sub">${t('users.active_count', { n: active.length })}</div>
         </div>
       </div>
       <div id="users-list">
         ${patients.length === 0
-          ? '<p class="no-data">No users yet. Add your first user below.</p>'
+          ? `<p class="no-data">${t('users.no_users')}</p>`
           : patients.map(p => _userCardHtml(p)).join('')}
       </div>
       <div class="users-add-btn">
-        <button class="primary-btn full-width" onclick="_usersShowAddForm()">+ Add user</button>
+        <button class="primary-btn full-width" onclick="_usersShowAddForm()">${t('users.add_btn')}</button>
       </div>
     </div>
   `;
@@ -171,13 +186,13 @@ function _userCardHtml(p) {
            data-patient-name="${escHtml(p.name)}"
            onclick="_usersSelectAndGo(this.dataset.patientId, this.dataset.patientName)">
         <div class="user-card-name">${escHtml(p.name)}</div>
-        ${p.dob ? `<div class="user-card-sub">DOB: ${escHtml(p.dob)}</div>` : ''}
-        ${isCurrent ? '<span class="user-active-badge">Active</span>' : ''}
-        ${!p.active ? '<span class="user-inactive-badge">Inactive</span>' : ''}
+        ${p.dob ? `<div class="user-card-sub">${t('users.dob', { dob: escHtml(p.dob) })}</div>` : ''}
+        ${isCurrent ? `<span class="user-active-badge">${t('users.active_badge')}</span>` : ''}
+        ${!p.active ? `<span class="user-inactive-badge">${t('users.inactive_badge')}</span>` : ''}
       </div>
       <button class="ghost-btn user-edit-btn"
               data-patient-id="${escHtml(p.patientId)}"
-              onclick="event.stopPropagation(); _usersShowEditForm(this.dataset.patientId)">Edit</button>
+              onclick="event.stopPropagation(); _usersShowEditForm(this.dataset.patientId)">${t('users.edit')}</button>
     </div>
   `;
 }
@@ -205,38 +220,38 @@ function _renderUserForm(container, patient) {
   container.innerHTML = `
     <div class="page">
       <div class="page-head">
-        <button class="ghost-btn" onclick="renderUsers(document.getElementById('screen-container'))">← Back</button>
-        <h1 class="page-title">${isEdit ? 'Edit user' : 'Add user'}</h1>
+        <button class="ghost-btn" onclick="renderUsers(document.getElementById('screen-container'))">${t('common.back')}</button>
+        <h1 class="page-title">${isEdit ? t('users.form.edit') : t('users.form.add')}</h1>
       </div>
       <section class="card">
         <div class="form-field">
-          <label class="form-label">Name *</label>
+          <label class="form-label">${t('users.form.name')}</label>
           <input id="uf-name" class="form-input" type="text"
                  value="${isEdit ? escHtml(patient.name) : ''}"
-                 placeholder="Display name" maxlength="100">
+                 placeholder="${t('users.form.name_ph')}" maxlength="100">
         </div>
         <div class="form-field">
-          <label class="form-label">Date of birth</label>
+          <label class="form-label">${t('users.form.dob')}</label>
           <input id="uf-dob" class="form-input" type="date"
                  value="${isEdit && patient.dob ? escHtml(patient.dob) : ''}">
         </div>
         <div class="form-field">
-          <label class="form-label">Comment</label>
+          <label class="form-label">${t('users.form.comment')}</label>
           <textarea id="uf-comment" class="form-input" rows="3"
-                    placeholder="Medical notes, contact info…">${isEdit && patient.comment ? escHtml(patient.comment) : ''}</textarea>
+                    placeholder="${t('users.form.comment_ph')}">${isEdit && patient.comment ? escHtml(patient.comment) : ''}</textarea>
         </div>
         ${isEdit ? `
         <div class="form-field">
-          <label class="form-label">Active</label>
+          <label class="form-label">${t('users.form.active')}</label>
           <select id="uf-active" class="form-input">
-            <option value="true"  ${patient.active  ? 'selected' : ''}>Yes</option>
-            <option value="false" ${!patient.active ? 'selected' : ''}>No</option>
+            <option value="true"  ${patient.active  ? 'selected' : ''}>${t('users.form.yes')}</option>
+            <option value="false" ${!patient.active ? 'selected' : ''}>${t('users.form.no')}</option>
           </select>
         </div>
         ` : ''}
         <button class="primary-btn full-width" id="uf-submit"
                 onclick="_usersSubmitForm(${isEdit ? `'${escHtml(patient.patientId)}'` : 'null'})">
-          ${isEdit ? 'Save changes' : 'Add user'}
+          ${isEdit ? t('users.form.save') : t('users.form.add')}
         </button>
         <p id="uf-msg" class="auth-msg" style="margin-top:8px"></p>
       </section>
@@ -252,13 +267,13 @@ async function _usersSubmitForm(patientId) {
   const comment = (document.getElementById('uf-comment')?.value || '').trim();
 
   if (!name) {
-    msg.textContent = 'Name is required.';
+    msg.textContent = t('users.form.required');
     msg.style.color = 'var(--danger)';
     return;
   }
 
   btn.disabled    = true;
-  msg.textContent = 'Saving…';
+  msg.textContent = t('common.saving');
   msg.style.color = 'var(--text-3)';
 
   try {
@@ -282,7 +297,7 @@ async function _usersSubmitForm(patientId) {
       _renderUsersList(document.getElementById('screen-container'), fresh.patients);
     }
   } catch (err) {
-    msg.textContent = 'Error: ' + err.message;
+    msg.textContent = t('common.error', { msg: err.message });
     msg.style.color = 'var(--danger)';
     btn.disabled = false;
   }

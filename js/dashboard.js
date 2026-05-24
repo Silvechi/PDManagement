@@ -34,7 +34,7 @@ function invalidateDashboardCache(patientId) {
 }
 
 async function renderDashboard(container) {
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const today = new Date().toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' });
   const patientId = getActivePatientId();
 
   const REFRESH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.36-3.36L23 10M1 14l5.13 4.36A9 9 0 0020.49 15"/></svg>`;
@@ -43,6 +43,7 @@ async function renderDashboard(container) {
     <div class="page">
       <div class="page-head">
         <div>
+          <h1 class="page-title">${t('nav.dashboard')}</h1>
           <div class="page-sub">${today}</div>
           <div class="dash-updated" id="dash-updated"></div>
         </div>
@@ -50,11 +51,11 @@ async function renderDashboard(container) {
           <button class="icon-btn" id="dash-refresh-btn" onclick="refreshDashboard()" title="Refresh">${REFRESH_ICON}</button>
           <button class="quick-log" onclick="navigateTo('measurements')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><path d="M12 5v14M5 12h14"/></svg>
-            <span>Quick log</span>
+            <span>${t('dash.quick_log')}</span>
           </button>
         </div>
       </div>
-      <div id="dash-loading" class="loading-state" style="display:none">Loading…</div>
+      <div id="dash-loading" class="loading-state" style="display:none">${t('common.loading')}</div>
       <div id="dash-content"></div>
     </div>
   `;
@@ -98,7 +99,7 @@ async function _dashFetch(patientId, silent = false) {
     const loading = document.getElementById('dash-loading');
     if (loading) {
       loading.style.display = '';
-      loading.innerHTML = `<div class="feedback feedback-error">Failed to load: ${escHtml(err.message)}</div>`;
+      loading.innerHTML = `<div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div>`;
     }
   }
 }
@@ -118,7 +119,7 @@ function _dashSetUpdated(ts) {
   const el = document.getElementById('dash-updated');
   if (!el || !ts) return;
   const d = new Date(ts);
-  el.textContent = 'Updated ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  el.textContent = t('dash.updated', { time: d.toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' }) });
 }
 
 function renderDashboardContent(data) {
@@ -135,7 +136,7 @@ function renderDashboardContent(data) {
   const supplyItems  = config.filter(item => !isBagItem(item) && isActiveBagItem(item));
 
   // ── Bag hero cards ──
-  let bagHeroHtml = '<p class="no-data">No bag data.</p>';
+  let bagHeroHtml = `<p class="no-data">${t('dash.no_bag_data')}</p>`;
   if (bagItems.length) {
     bagHeroHtml = bagItems.map(item => {
       const c     = bagColorsFor(item);
@@ -152,7 +153,7 @@ function renderDashboardContent(data) {
           <div class="bag-hero-right">
             <div class="bag-hero-count">${count}</div>
             <div class="bag-hero-label">
-              ${low ? `<span class="low-tag">low</span>` : `<span class="bag-hero-stock">bags</span>`}
+              ${low ? `<span class="low-tag">${t('common.low')}</span>` : `<span class="bag-hero-stock">${t('dash.bags')}</span>`}
             </div>
           </div>
         </div>
@@ -166,8 +167,8 @@ function renderDashboardContent(data) {
     suppliesHtml = `
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">Supplies</h2>
-          <button class="link" onclick="navigateTo('inventory')">Manage →</button>
+          <h2 class="card-title">${t('dash.supplies')}</h2>
+          <button class="link" onclick="navigateTo('inventory')">${t('common.manage')}</button>
         </div>
         <div class="supplies-grid">
           ${supplyItems.map(item => {
@@ -193,7 +194,7 @@ function renderDashboardContent(data) {
       <div class="card card-low-stock">
         <div class="card-low-stock-inner">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M12 9v4M12 17h.01M10.3 3.8L2.6 17a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 3.8a2 2 0 00-3.4 0z"/></svg>
-          Low stock: ${escHtml(data.lowStockFlags)}
+          ${t('dash.low_stock', { flags: escHtml(data.lowStockFlags) })}
         </div>
       </div>
     `;
@@ -215,7 +216,7 @@ function renderDashboardContent(data) {
           <div class="card card-overdue">
             <div class="card-overdue-inner">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-              Exchange overdue · ${elapsed} since last (max ${maxH}h)
+              ${t('dash.overdue', { elapsed, maxH })}
             </div>
           </div>
         `;
@@ -225,7 +226,7 @@ function renderDashboardContent(data) {
 
   // ── BP vitals ──
   const bpRecent = data.bpRecent || [];
-  let bpHtml = '<p class="no-data">No BP data yet.</p>';
+  let bpHtml = `<p class="no-data">${t('dash.no_bp')}</p>`;
   if (bpRecent.length || data.bpAvg) {
     const lastBP = bpRecent[bpRecent.length - 1] || data.bpAvg;
     const avgBP  = data.bpAvg;
@@ -233,12 +234,12 @@ function renderDashboardContent(data) {
       ? `<span class="vitals-val">${lastBP.systolic}<span class="slash">/</span>${lastBP.diastolic}<span class="unit"> mmHg</span></span>`
       : '';
     const metaStr = avgBP
-      ? `<div class="vitals-meta">${lastBP?.time || ''} · avg <strong>${avgBP.systolic}/${avgBP.diastolic}</strong></div>`
+      ? `<div class="vitals-meta">${lastBP?.time || ''} · ${t('dash.avg')} <strong>${avgBP.systolic}/${avgBP.diastolic}</strong></div>`
       : `<div class="vitals-meta">${lastBP?.time || ''}</div>`;
     bpHtml = `
       <div class="vitals-stack">
         <div class="vitals-row big">
-          <span class="vitals-label">Blood pressure</span>
+          <span class="vitals-label">${t('dash.blood_pressure')}</span>
           ${valStr}
         </div>
         ${metaStr}
@@ -248,7 +249,7 @@ function renderDashboardContent(data) {
 
   // ── Weight + sparkline ──
   const trend  = (data.weightTrend || []).filter(e => e.weight !== '' && e.weight !== null && !isNaN(parseFloat(e.weight)));
-  let weightHtml = '<p class="no-data">No weight data yet.</p>';
+  let weightHtml = `<p class="no-data">${t('dash.no_weight')}</p>`;
   if (trend.length) {
     const values   = trend.map(e => parseFloat(e.weight));
     const last     = values[values.length - 1];
@@ -260,7 +261,7 @@ function renderDashboardContent(data) {
         <div class="weight-now">${last.toFixed(1)}<span class="unit">kg</span></div>
         ${sparkSvg}
       </div>
-      <div class="vitals-meta" style="margin-top:6px">7-day trend · ${deltaStr} kg</div>
+      <div class="vitals-meta" style="margin-top:6px">${t('dash.trend', { delta: deltaStr })}</div>
     `;
   }
 
@@ -272,10 +273,10 @@ function renderDashboardContent(data) {
     <section class="card">
       <div class="card-head">
         <div>
-          <h2 class="card-title">Solution bags</h2>
-          ${data.lastExchange ? `<p class="card-sub">Last exchange ${timeAgo(data.lastExchange.date, data.lastExchange.time)}</p>` : ''}
+          <h2 class="card-title">${t('dash.solution_bags')}</h2>
+          ${data.lastExchange ? `<p class="card-sub">${t('dash.last_exchange', { ago: timeAgo(data.lastExchange.date, data.lastExchange.time) })}</p>` : ''}
         </div>
-        <button class="link" onclick="navigateTo('inventory')">Manage →</button>
+        <button class="link" onclick="navigateTo('inventory')">${t('common.manage')}</button>
       </div>
       <div class="bag-hero-grid">${bagHeroHtml}</div>
     </section>
@@ -286,16 +287,16 @@ function renderDashboardContent(data) {
     <div class="two-col">
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">Latest vitals</h2>
-          <button class="link" onclick="navigateTo('measurements','bp')">Log →</button>
+          <h2 class="card-title">${t('dash.latest_vitals')}</h2>
+          <button class="link" onclick="navigateTo('measurements','bp')">${t('common.log')}</button>
         </div>
         ${bpHtml}
       </section>
 
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">Weight</h2>
-          <button class="link" onclick="navigateTo('measurements','weight')">Log →</button>
+          <h2 class="card-title">${t('dash.weight')}</h2>
+          <button class="link" onclick="navigateTo('measurements','weight')">${t('common.log')}</button>
         </div>
         ${weightHtml}
       </section>

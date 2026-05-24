@@ -25,16 +25,16 @@ function renderInventory(container, dashData) {
     <div class="page">
       <div class="page-head">
         <div>
-          <h1 class="page-title">Inventory</h1>
-          <div class="page-sub">Adjust counts as you use or restock</div>
+          <h1 class="page-title">${t('inv.title')}</h1>
+          <div class="page-sub">${t('inv.sub')}</div>
         </div>
       </div>
 
       ${bagItems.length ? `
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">Solution bags</h2>
-          <p class="card-sub">Tap +/− to adjust</p>
+          <h2 class="card-title">${t('inv.solution_bags')}</h2>
+          <p class="card-sub">${t('inv.tap_adjust')}</p>
         </div>
         <div class="inv-bag-list" id="inv-bag-list"></div>
       </section>
@@ -43,18 +43,18 @@ function renderInventory(container, dashData) {
       ${supplyItems.length ? `
       <section class="card">
         <div class="card-head">
-          <h2 class="card-title">Other supplies</h2>
+          <h2 class="card-title">${t('inv.other_supplies')}</h2>
         </div>
         <ul class="inv-list" id="inv-supply-list"></ul>
       </section>
       ` : ''}
 
-      ${!inventoryConfig.length ? `<p class="no-data">No inventory items configured.</p>` : ''}
+      ${!inventoryConfig.length ? `<p class="no-data">${t('inv.no_items')}</p>` : ''}
 
       <div id="inv-feedback" class="feedback" aria-live="polite"></div>
 
       <button class="primary-btn lg w-full" id="inv-submit" onclick="handleInventorySubmit()">
-        Save inventory
+        ${t('inv.save')}
       </button>
     </div>
   `;
@@ -80,7 +80,7 @@ function renderBagRows(bagItems) {
           <span class="bag-dot lg"></span>
           <div>
             <div class="inv-bag-pct">${escHtml(label)}</div>
-            <div class="inv-bag-hint">Warn below ${item.min || 5}</div>
+            <div class="inv-bag-hint">${t('inv.warn_below', { n: item.min || 5 })}</div>
           </div>
         </div>
         <div class="stepper">
@@ -106,9 +106,11 @@ function renderSupplyRows(supplyItems) {
         <div class="inv-row-info">
           <div class="inv-row-label">
             ${escHtml(item.name)}
-            ${low ? `<span class="low-tag">low</span>` : ''}
+            ${low ? `<span class="low-tag">${t('common.low')}</span>` : ''}
           </div>
-          ${item.description ? `<div class="inv-row-hint">${escHtml(item.description)} · warn below ${item.min}</div>` : (item.min ? `<div class="inv-row-hint">Warn below ${item.min}</div>` : '')}
+          ${item.description
+            ? `<div class="inv-row-hint">${escHtml(item.description)} · ${t('inv.warn_below', { n: item.min })}</div>`
+            : (item.min ? `<div class="inv-row-hint">${t('inv.warn_below', { n: item.min })}</div>` : '')}
         </div>
         <div class="stepper">
           <button onclick="adjustCount(${idx}, -1)">${MINUS_ICON}</button>
@@ -157,7 +159,7 @@ function updateRowStyling(idx) {
     if (label) {
       const existing = label.querySelector('.low-tag');
       if (low && !existing) {
-        label.insertAdjacentHTML('beforeend', `<span class="low-tag">low</span>`);
+        label.insertAdjacentHTML('beforeend', `<span class="low-tag">${t('common.low')}</span>`);
       } else if (!low && existing) {
         existing.remove();
       }
@@ -169,7 +171,7 @@ async function handleInventorySubmit() {
   const now      = new Date();
   const datetime = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const btn      = document.getElementById('inv-submit');
-  btn.disabled = true; btn.textContent = 'Saving…';
+  btn.disabled = true; btn.textContent = t('common.saving');
   setInventoryFeedback('', '');
 
   const items = inventoryConfig.map(item => ({
@@ -180,7 +182,7 @@ async function handleInventorySubmit() {
   try {
     await API.updateInventory({ datetime, items, patientId: getActivePatientId() });
     invalidateDashboardCache();
-    setInventoryFeedback('Inventory saved.', 'success');
+    setInventoryFeedback(t('inv.saved'), 'success');
     const dash = typeof getDashboardData === 'function' ? getDashboardData() : null;
     if (dash?.inventory) {
       inventoryConfig.forEach(item => {
@@ -188,9 +190,9 @@ async function handleInventorySubmit() {
       });
     }
   } catch (err) {
-    setInventoryFeedback('Error: ' + err.message, 'error');
+    setInventoryFeedback(t('common.error', { msg: err.message }), 'error');
   } finally {
-    btn.disabled = false; btn.textContent = 'Save inventory';
+    btn.disabled = false; btn.textContent = t('inv.save');
   }
 }
 

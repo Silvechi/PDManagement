@@ -50,8 +50,8 @@ async function renderHistory(container) {
     <div class="page">
       <div class="page-head">
         <div>
-          <h1 class="page-title">History</h1>
-          <div class="page-sub">Exchange log</div>
+          <h1 class="page-title">${t('hist.title')}</h1>
+          <div class="page-sub">${t('hist.sub')}</div>
         </div>
       </div>
       <div class="hist-filter">
@@ -61,19 +61,19 @@ async function renderHistory(container) {
         </div>
         <div class="hist-daterange">
           <div class="hist-daterange-field">
-            <label class="hist-daterange-label" for="hist-from">From</label>
+            <label class="hist-daterange-label" for="hist-from">${t('hist.from')}</label>
             <input type="date" class="hist-date-input" id="hist-from"
                    value="${_histFrom}" max="${_todayStr()}" onchange="onHistFromChange(this.value)">
           </div>
           <span class="hist-daterange-sep">→</span>
           <div class="hist-daterange-field">
-            <label class="hist-daterange-label" for="hist-to">To</label>
+            <label class="hist-daterange-label" for="hist-to">${t('hist.to')}</label>
             <input type="date" class="hist-date-input" id="hist-to"
                    value="${_histTo}" max="${_todayStr()}" onchange="onHistToChange(this.value)">
           </div>
         </div>
       </div>
-      <div id="hist-loading" class="loading-state">Loading…</div>
+      <div id="hist-loading" class="loading-state">${t('common.loading')}</div>
       <div id="hist-content"></div>
     </div>
   `;
@@ -130,7 +130,7 @@ async function _fetchAndRenderHist() {
     return;
   }
 
-  if (loading) { loading.textContent = 'Loading…'; loading.style.display = ''; }
+  if (loading) { loading.textContent = t('common.loading'); loading.style.display = ''; }
   if (content) content.innerHTML = '';
 
   try {
@@ -143,7 +143,7 @@ async function _fetchAndRenderHist() {
     _histWriteCache(patientId, _histFrom, _histTo, result.version || null, _histRows);
     _renderHistContent();
   } catch (err) {
-    if (loading) loading.innerHTML = `<div class="feedback feedback-error">Failed to load: ${escHtml(err.message)}</div>`;
+    if (loading) loading.innerHTML = `<div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div>`;
   }
 }
 
@@ -159,7 +159,7 @@ async function _histBackgroundRefresh(patientId, cachedVersion) {
       _histSetSyncing(true);
       const loading = document.getElementById('hist-loading');
       const content = document.getElementById('hist-content');
-      if (loading) { loading.textContent = 'Loading…'; loading.style.display = ''; }
+      if (loading) { loading.textContent = t('common.loading'); loading.style.display = ''; }
       if (content) content.innerHTML = '';
       const [result, dashResult] = await Promise.all([
         API.getHistory({ patientId, from: _histFrom, to: _histTo }),
@@ -184,7 +184,7 @@ function _renderHistContent() {
   const rows = (_histRows || []).filter(r => exchangeTypes.has(r.measurementType));
 
   if (!rows.length) {
-    content.innerHTML = `<p class="no-data">No exchanges in this period.</p>`;
+    content.innerHTML = `<p class="no-data">${t('hist.no_data')}</p>`;
     return;
   }
 
@@ -200,7 +200,7 @@ function _renderHistContent() {
     .sort((a, b) => b.localeCompare(a))
     .map(key => {
       const d     = new Date(key + 'T00:00:00');
-      const label = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      const label = d.toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
       return `
         <div class="hist-group">
           <div class="hist-date-hdr">${escHtml(label)}</div>
@@ -219,9 +219,13 @@ function _bagColorForType(bagType) {
 }
 
 function _buildHistRow(row) {
-  const type   = row.measurementType || '';
-  const labels = { drain_fill: 'Drain & Fill', drain: 'Drain only', fill: 'Fill only' };
-  const time   = _histFmtTime(row.time);
+  const type = row.measurementType || '';
+  const labels = {
+    drain_fill: t('hist.drain_fill'),
+    drain:      t('hist.drain'),
+    fill:       t('hist.fill'),
+  };
+  const time = _histFmtTime(row.time);
 
   const bagType   = row.bagType   ? escHtml(String(row.bagType))   : '';
   const bagWeight = row.bagWeight !== '' && row.bagWeight !== null ? parseFloat(row.bagWeight) : null;
@@ -229,9 +233,8 @@ function _buildHistRow(row) {
 
   let detail = '';
   if (type !== 'fill' && bagWeight !== null && !isNaN(bagWeight)) {
-    detail = bagType
-      ? `${bagType} · ${bagWeight.toFixed(1)} kg drained`
-      : `${bagWeight.toFixed(1)} kg drained`;
+    const drainedStr = t('hist.drained', { weight: bagWeight.toFixed(1) });
+    detail = bagType ? `${bagType} · ${drainedStr}` : drainedStr;
   } else if (bagType) {
     detail = bagType;
   }

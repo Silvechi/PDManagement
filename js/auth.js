@@ -50,15 +50,15 @@ function _authShowRegistration(errorMsg) {
   c.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <h1 class="auth-title">PD Tracker</h1>
-        <p class="auth-sub">Enter your device name and password to sign in or register.</p>
-        <label class="auth-label" for="auth-label-input">Device name</label>
+        <h1 class="auth-title">${t('auth.title')}</h1>
+        <p class="auth-sub">${t('auth.sub')}</p>
+        <label class="auth-label" for="auth-label-input">${t('auth.device_label')}</label>
         <input id="auth-label-input" class="auth-input" type="text"
-               placeholder="e.g. Mom's phone" maxlength="50" autocomplete="username">
-        <label class="auth-label" for="auth-pw-input">Password <span class="auth-hint">(6–20 characters)</span></label>
+               placeholder="${t('auth.device_ph')}" maxlength="50" autocomplete="username">
+        <label class="auth-label" for="auth-pw-input">${t('auth.pw_label')} <span class="auth-hint">${t('auth.pw_hint')}</span></label>
         <input id="auth-pw-input" class="auth-input" type="password"
-               placeholder="Password" minlength="6" maxlength="20" autocomplete="current-password">
-        <button class="auth-btn" id="auth-submit-btn" onclick="_authSubmit()">Continue</button>
+               placeholder="${t('auth.pw_label')}" minlength="6" maxlength="20" autocomplete="current-password">
+        <button class="auth-btn" id="auth-submit-btn" onclick="_authSubmit()">${t('auth.continue')}</button>
         <p id="auth-msg" class="auth-msg">${errorMsg ? escHtml(errorMsg) : ''}</p>
       </div>
     </div>
@@ -76,18 +76,18 @@ async function _authSubmit() {
   const msg      = document.getElementById('auth-msg');
 
   if (!label) {
-    msg.textContent = 'Please enter a device name.';
+    msg.textContent = t('auth.no_device');
     msg.style.color = 'var(--danger)';
     return;
   }
   if (password.length < 6 || password.length > 20) {
-    msg.textContent = 'Password must be 6–20 characters.';
+    msg.textContent = t('auth.pw_length');
     msg.style.color = 'var(--danger)';
     return;
   }
 
   btn.disabled    = true;
-  msg.textContent = 'Connecting…';
+  msg.textContent = t('auth.connecting');
   msg.style.color = 'var(--text-3)';
 
   try {
@@ -106,12 +106,12 @@ async function _authSubmit() {
     } else if (result.status === 'revoked') {
       _authShowDenied();
     } else {
-      msg.textContent = 'Unexpected response. Try again.';
+      msg.textContent = t('auth.unexpected');
       msg.style.color = 'var(--danger)';
       btn.disabled = false;
     }
   } catch (err) {
-    msg.textContent = 'Error: ' + err.message;
+    msg.textContent = t('common.error', { msg: err.message });
     msg.style.color = 'var(--danger)';
     btn.disabled = false;
   }
@@ -124,11 +124,11 @@ function _authShowPending() {
   c.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <h1 class="auth-title">Waiting for approval</h1>
-        <p class="auth-sub">Your request is pending. Ask the account owner to approve it in the <strong>Tokens</strong> sheet in Google Sheets.</p>
-        <p class="auth-sub">Once approved, sign in again with your device name and password.</p>
-        <button class="auth-btn" id="auth-submit-btn" onclick="_authCheckAgain()">Check again</button>
-        <button class="auth-btn auth-btn-secondary" onclick="_authShowRegistration()">Back</button>
+        <h1 class="auth-title">${t('auth.pending.title')}</h1>
+        <p class="auth-sub">${t('auth.pending.sub1')}</p>
+        <p class="auth-sub">${t('auth.pending.sub2')}</p>
+        <button class="auth-btn" id="auth-submit-btn" onclick="_authCheckAgain()">${t('auth.check_again')}</button>
+        <button class="auth-btn auth-btn-secondary" onclick="_authShowRegistration()">${t('auth.back')}</button>
         <p id="auth-msg" class="auth-msg"></p>
       </div>
     </div>
@@ -139,7 +139,7 @@ async function _authCheckAgain() {
   const btn = document.getElementById('auth-submit-btn');
   const msg = document.getElementById('auth-msg');
   btn.disabled = true;
-  msg.textContent = 'Checking…';
+  msg.textContent = t('auth.checking');
   msg.style.color = 'var(--text-3)';
 
   const token = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -152,12 +152,12 @@ async function _authCheckAgain() {
     } else if (result.status === 'revoked') {
       _authShowDenied();
     } else {
-      msg.textContent = 'Still pending. Check back after the owner approves it in the Tokens sheet.';
+      msg.textContent = t('auth.still_pending');
       msg.style.color = 'var(--text-2)';
       btn.disabled = false;
     }
   } catch (_err) {
-    msg.textContent = 'Could not reach server. Try again.';
+    msg.textContent = t('auth.no_server');
     msg.style.color = 'var(--danger)';
     btn.disabled = false;
   }
@@ -170,9 +170,9 @@ function _authShowDenied() {
   c.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <h1 class="auth-title">Access denied</h1>
-        <p class="auth-sub">This device's access has been revoked. Contact the account owner.</p>
-        <button class="auth-btn" onclick="localStorage.removeItem('${AUTH_STORAGE_KEY}'); history.replaceState(null,'',location.pathname); location.reload()">Register a new device</button>
+        <h1 class="auth-title">${t('auth.denied.title')}</h1>
+        <p class="auth-sub">${t('auth.denied.sub')}</p>
+        <button class="auth-btn" onclick="localStorage.removeItem('${AUTH_STORAGE_KEY}'); history.replaceState(null,'',location.pathname); location.reload()">${t('auth.new_device')}</button>
       </div>
     </div>
   `;
@@ -183,9 +183,9 @@ function _authShowError(message) {
   c.innerHTML = `
     <div class="auth-screen">
       <div class="auth-card">
-        <h1 class="auth-title">Connection error</h1>
+        <h1 class="auth-title">${t('auth.error.title')}</h1>
         <p class="auth-sub">${escHtml(message)}</p>
-        <button class="auth-btn" onclick="location.reload()">Retry</button>
+        <button class="auth-btn" onclick="location.reload()">${t('auth.retry')}</button>
       </div>
     </div>
   `;

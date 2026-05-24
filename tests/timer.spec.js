@@ -114,6 +114,7 @@ test.describe('Prep Screen', () => {
 
   test('shows error when API fails', async ({ page }) => {
     await setupMockApi(page, { getConfig: { error: 'Config not found' } });
+    await page.addInitScript(() => localStorage.removeItem('pd_config_v1'));
     await page.goto('/');
     await goToPrep(page);
     await expect(page.locator('.feedback-error')).toContainText(/failed to load/i, { timeout: 8000 });

@@ -11,11 +11,11 @@ async function renderPrep(container) {
     <div class="page">
       <div class="page-head">
         <div>
-          <h1 class="page-title">Prep</h1>
-          <div class="page-sub">Reference card for the exchange procedure</div>
+          <h1 class="page-title">${t('prep.title')}</h1>
+          <div class="page-sub">${t('prep.sub')}</div>
         </div>
       </div>
-      <div id="prep-loading" class="loading-state">Loading…</div>
+      <div id="prep-loading" class="loading-state">${t('common.loading')}</div>
       <div id="prep-content" style="display:none"></div>
     </div>
   `;
@@ -56,7 +56,7 @@ async function renderPrep(container) {
     renderPrepContent(prepConfig);
   } catch (err) {
     document.getElementById('prep-loading').innerHTML =
-      `<div class="feedback feedback-error">Failed to load: ${escHtml(err.message)}</div>`;
+      `<div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div>`;
   }
 }
 
@@ -79,7 +79,7 @@ function renderPrepContent(cfg) {
         const text = typeof item === 'string' ? item : (item.text || '');
         return `<li class="prep-item"><span class="prep-dot"></span><span>${escHtml(text)}</span></li>`;
       }).join('')
-    : '<li class="prep-item" style="color:var(--text-3)">No items configured.</li>';
+    : `<li class="prep-item" style="color:var(--text-3)">${t('prep.no_items')}</li>`;
 
   const stepsHtml = cfg.prepSteps?.length
     ? cfg.prepSteps.map((step, i) => {
@@ -95,19 +95,19 @@ function renderPrepContent(cfg) {
           </li>
         `;
       }).join('')
-    : '<li class="step"><span class="step-num">—</span><span class="step-text" style="color:var(--text-3)">No steps configured.</span></li>';
+    : `<li class="step"><span class="step-num">—</span><span class="step-text" style="color:var(--text-3)">${t('prep.no_steps')}</span></li>`;
 
   content.innerHTML = `
     <section class="card">
       <div class="card-head">
-        <h2 class="card-title">What to prepare</h2>
+        <h2 class="card-title">${t('prep.what_to_prepare')}</h2>
       </div>
       <ul class="prep-items">${itemsHtml}</ul>
     </section>
 
     <section class="card">
       <div class="card-head">
-        <h2 class="card-title">Procedure</h2>
+        <h2 class="card-title">${t('prep.procedure')}</h2>
       </div>
       <ol class="steps">${stepsHtml}</ol>
     </section>

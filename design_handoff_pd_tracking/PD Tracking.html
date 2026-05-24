@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PD Tracking — Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="pd-styles.css" />
+<style>
+  body { background: #f0eee9; margin: 0; }
+  body[data-theme="dark"] { background: #0a0a0c; }
+  body[data-theme="dark"] #root { color-scheme: dark; }
+
+  /* Device frames around each app instance */
+  .device {
+    background: var(--surface, #fff);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column;
+  }
+  .device.desktop {
+    width: 100%; height: 100%;
+    border-radius: 10px;
+  }
+  .device.tablet {
+    width: 100%; height: 100%;
+    border-radius: 28px;
+    border: 10px solid #2a2a2e;
+    background: #000;
+  }
+  .device.phone {
+    width: 100%; height: 100%;
+    border-radius: 38px;
+    border: 9px solid #131316;
+    background: #000;
+    position: relative;
+  }
+  .device.phone::before {
+    content: ''; position: absolute; top: 10px; left: 50%;
+    transform: translateX(-50%);
+    width: 90px; height: 22px; border-radius: 100px;
+    background: #000;
+    z-index: 10;
+  }
+  .device-inner { width: 100%; height: 100%; background: var(--bg, #f6f5f1); overflow: hidden; }
+  .device.tablet .device-inner { border-radius: 20px; }
+  .device.phone .device-inner { border-radius: 30px; }
+
+  /* Browser chrome for desktop */
+  .browser-bar {
+    height: 30px; background: #e8e4dc;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    flex-shrink: 0;
+  }
+  [data-theme="dark"] .browser-bar { background: #1f1f23; border-bottom-color: rgba(255,255,255,0.06); }
+  .browser-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .browser-dot.r { background: #ff605c; }
+  .browser-dot.y { background: #ffbd44; }
+  .browser-dot.g { background: #00ca4e; }
+  .browser-url {
+    flex: 1; margin: 0 24px; height: 18px;
+    background: rgba(0,0,0,0.05); border-radius: 4px;
+    font-size: 11px; color: #888; padding: 0 10px;
+    display: flex; align-items: center; gap: 6px;
+    font-family: -apple-system, sans-serif;
+  }
+  [data-theme="dark"] .browser-url { background: rgba(255,255,255,0.05); color: #aaa; }
+
+  /* Status bar for tablet/phone */
+  .status-bar {
+    height: 28px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px;
+    font: 600 12px -apple-system, system-ui, sans-serif;
+    color: var(--text, #1a1815);
+    background: var(--bg, #f6f5f1);
+  }
+  .device.phone .status-bar { padding: 4px 28px 0; height: 32px; }
+  .status-icons { display: flex; gap: 4px; align-items: center; }
+  .status-icons svg { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="pd-app.jsx"></script>
+<script type="text/babel" src="pd-dashboard.jsx"></script>
+<script type="text/babel" src="pd-screens.jsx"></script>
+<script type="text/babel" src="pd-shell.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "showFrames": true
+}/*EDITMODE-END*/;
+
+// status bar icons
+const StatusIcons = () => (
+  <span className="status-icons" style={{ color: 'currentColor' }}>
+    <svg viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="4" y="5" width="3" height="7" rx="0.5"/><rect x="8" y="2" width="3" height="10" rx="0.5"/><rect x="12" y="0" width="3" height="12" rx="0.5"/></svg>
+    <svg viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.5c2.2 0 4.2 0.8 5.8 2.2l1.2-1.4C13.1 1.6 10.7 0.5 8 0.5S2.9 1.6 1 3.3l1.2 1.4C3.8 3.3 5.8 2.5 8 2.5zm0 3c1.4 0 2.7 0.5 3.7 1.4l1.2-1.4c-1.3-1.2-3-2-4.9-2s-3.6 0.8-4.9 2l1.2 1.4C5.3 6 6.6 5.5 8 5.5zm0 3c0.7 0 1.3 0.2 1.8 0.7l1.2-1.4c-0.8-0.7-1.9-1.3-3-1.3s-2.2 0.6-3 1.3l1.2 1.4c0.5-0.5 1.1-0.7 1.8-0.7z"/></svg>
+    <svg viewBox="0 0 24 12" fill="none"><rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="currentColor"/><rect x="2" y="2" width="13" height="8" rx="1" fill="currentColor"/><rect x="21" y="3" width="2" height="6" rx="1" fill="currentColor" opacity="0.6"/></svg>
+  </span>
+);
+
+function BrowserChrome() {
+  return (
+    <div className="browser-bar">
+      <span className="browser-dot r"></span>
+      <span className="browser-dot y"></span>
+      <span className="browser-dot g"></span>
+      <span className="browser-url">🔒 pd.daily — Dashboard</span>
+    </div>
+  );
+}
+
+function StatusBar({ time = '9:41' }) {
+  return (
+    <div className="status-bar">
+      <span>{time}</span>
+      <StatusIcons />
+    </div>
+  );
+}
+
+function App() {
+  const t = useTweaks(TWEAK_DEFAULTS);
+  const dark = t.theme === 'dark';
+
+  useEffect(() => {
+    document.body.dataset.theme = t.theme;
+  }, [t.theme]);
+
+  const PDApp = window.PDApp;
+
+  // Build the three artboards
+  return (
+    <>
+      <DesignCanvas>
+        <DCSection
+          id="overview"
+          title="PD Tracking · Responsive Redesign"
+          subtitle="One layout, container-query driven. Bag colors lead. Date/time stays compact. Drag artboards to compare; click ⤢ to focus."
+        >
+          <DCArtboard id="desktop" label="Desktop · 1280px" width={1280} height={840}>
+            <div className="device desktop" data-theme={t.theme}>
+              {t.showFrames && <BrowserChrome />}
+              <div className="device-inner">
+                <PDApp frame="desktop" />
+              </div>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="tablet" label="iPad · 820px" width={820} height={1100}>
+            <div className="device tablet" data-theme={t.theme}>
+              <div className="device-inner">
+                {t.showFrames && <StatusBar />}
+                <div style={{ height: t.showFrames ? 'calc(100% - 28px)' : '100%' }}>
+                  <PDApp frame="tablet" />
+                </div>
+              </div>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="phone" label="Galaxy S25 · 384px" width={384} height={820}>
+            <div className="device phone" data-theme={t.theme}>
+              <div className="device-inner">
+                {t.showFrames && <StatusBar />}
+                <div style={{ height: t.showFrames ? 'calc(100% - 32px)' : '100%' }}>
+                  <PDApp frame="phone" />
+                </div>
+              </div>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="dark-row"
+          title="Dark mode"
+          subtitle="Tap the theme tweak to flip the whole canvas. Same UI, dark surfaces, identical bag colors."
+        >
+          <DCArtboard id="desktop-dark" label="Desktop · dark" width={1280} height={840}>
+            <div className="device desktop" data-theme="dark">
+              <div className="device-inner" style={{ background: '#0e0e10' }}>
+                <PDApp frame="desktop-dark" />
+              </div>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="phone-dark" label="Phone · dark" width={384} height={820}>
+            <div className="device phone" data-theme="dark">
+              <div className="device-inner" style={{ background: '#0e0e10' }}>
+                <div style={{ height: '100%' }}>
+                  <PDApp frame="phone-dark" />
+                </div>
+              </div>
+            </div>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Theme">
+          <TweakRadio
+            value={t.theme}
+            options={[
+              { value: 'light', label: 'Light' },
+              { value: 'dark',  label: 'Dark'  },
+            ]}
+            onChange={v => setTweak('theme', v)}
+          />
+        </TweakSection>
+        <TweakSection title="Device chrome">
+          <TweakToggle
+            value={t.showFrames}
+            onChange={v => setTweak('showFrames', v)}
+            label="Show browser bar & status bars"
+          />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+// dark-only PD instances need explicit data-theme — wrap with inline style override.
+// Trick: nest a div with data-theme="dark" so the CSS cascade picks up the dark tokens
+// even when the body theme is light.
+const StyleScoped = () => null;
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<style id="dark-scope">
+  /* When a .device sits inside a light page but should render dark, scope the dark tokens. */
+  .device[data-theme="dark"] {
+    --bg:        #0d0d0f;
+    --surface:   #1a1a1d;
+    --surface-2: #242429;
+    --text:      #f5f4f1;
+    --text-2:    #c8c5be;
+    --text-3:    #918d84;
+    --border:    rgba(255,255,255,0.10);
+    --border-2:  rgba(255,255,255,0.06);
+    --accent:    #7c9bff;
+    --accent-soft: rgba(124,155,255,0.18);
+    --accent-deep: #c9d6ff;
+    --ok:        #5dd494;
+    --warn:      #f0b56b;
+    --danger:    #ee7e6e;
+    --shadow:    0 1px 2px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4);
+    --shadow-2:  0 1px 2px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.5);
+    color-scheme: dark;
+    background: var(--bg);
+  }
+  .device[data-theme="dark"] .device-inner { background: var(--bg); color: var(--text); }
+  .device[data-theme="dark"] .pd-root { color: var(--text); }
+  .device[data-theme="dark"] .browser-url { background: rgba(255,255,255,0.05); color: #aaa; }
+  /* light scope inside dark body */
+  .device[data-theme="light"] {
+    --bg:        #f6f5f1;
+    --surface:   #ffffff;
+    --surface-2: #faf9f6;
+    --text:      #1a1815;
+    --text-2:    #58544d;
+    --text-3:    #8a857d;
+    --border:    rgba(20,16,10,0.09);
+    --border-2:  rgba(20,16,10,0.05);
+    --accent:    #2a5fd6;
+    --accent-soft: #e6edfb;
+    --accent-deep: #163892;
+    --ok:        #2BA15A;
+    --warn:      #C6802C;
+    --danger:    #C0392B;
+    color-scheme: light;
+    background: var(--bg);
+  }
+  .device[data-theme="light"] .device-inner { background: var(--bg); color: var(--text); }
+</style>
+
+</body>
+</html>

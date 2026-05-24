@@ -407,7 +407,7 @@ textarea, input { font: inherit; }
 }
 .now-edit-icon { color: var(--text-3); display: inline-flex; }
 .now-edit-pop {
-  position: absolute; top: calc(100% + 8px); right: 0; z-index: 20;
+  position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 20;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; box-shadow: var(--shadow-2);
   padding: 12px; display: flex; flex-direction: column; gap: 8px;
@@ -636,6 +636,7 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   display: flex; align-items: center; justify-content: center;
   flex-wrap: wrap; gap: 10px;
   padding: 6px 0;
+  direction: ltr;
 }
 .drum-picker {
   display: inline-flex; align-items: stretch; gap: 0;
@@ -783,6 +784,9 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   color: var(--text-3);
   padding-bottom: 9px;
   flex-shrink: 0;
+}
+[dir="rtl"] .hist-daterange-sep {
+  transform: scaleX(-1);
 }
 
 /* ── History screen ──────────────────────────────────────────── */

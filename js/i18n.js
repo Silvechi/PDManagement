@@ -312,7 +312,7 @@ const STRINGS = {
     'hist.drain_fill':        'ניקוז ומילוי',
     'hist.drain':             'ניקוז בלבד',
     'hist.fill':              'מילוי בלבד',
-    'hist.drained':           '{weight} kg ניוקז',
+    'hist.drained':           '{weight} kg נוקז',
 
     // ── Prep ────────────────────────────────────────────────────
     'prep.title':             'הכנה',

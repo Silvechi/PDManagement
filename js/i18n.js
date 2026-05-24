@@ -70,7 +70,7 @@ const STRINGS = {
     // ── Measurements ────────────────────────────────────────────
     'meas.title':             'Log',
     'meas.sub':               'Record an exchange or measurement',
-    'meas.tab.drainage':      'Drainage',
+    'meas.tab.drainage':      'Exchange',
     'meas.tab.weight':        'Weight',
     'meas.tab.bp':            'BP',
     'meas.proc.both':         'Drain + Fill',
@@ -249,7 +249,7 @@ const STRINGS = {
     // ── Measurements ────────────────────────────────────────────
     'meas.title':             'רישום',
     'meas.sub':               'תיעוד שחלוף או מדידה',
-    'meas.tab.drainage':      'ניקוז',
+    'meas.tab.drainage':      'שחלוף',
     'meas.tab.weight':        'משקל',
     'meas.tab.bp':            'ל"ד',
     'meas.proc.both':         'ניקוז + מילוי',

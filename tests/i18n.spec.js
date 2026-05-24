@@ -40,6 +40,30 @@ test.describe('i18n / Language', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   });
 
+  test('switching to Hebrew sets lang="he" on <html>', async ({ page }) => {
+    await setupMockApi(page);
+    await page.goto('/');
+    await goToSettings(page);
+    await page.getByRole('button', { name: 'עברית' }).click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'he');
+  });
+
+  test('switching back to English restores lang="en" on <html>', async ({ page }) => {
+    await setupMockApi(page);
+    await page.goto('/');
+    await goToSettings(page);
+    await page.getByRole('button', { name: 'עברית' }).click();
+    await page.getByRole('button', { name: 'English' }).click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  });
+
+  test('page loads with lang="he" when Hebrew is already stored', async ({ page }) => {
+    await setupMockApi(page);
+    await page.addInitScript(() => { localStorage.setItem('pd_lang', 'he'); });
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'he');
+  });
+
   test('switching to Hebrew updates nav labels', async ({ page }) => {
     await setupMockApi(page);
     await page.goto('/');
@@ -103,6 +127,23 @@ test.describe('i18n / Language', () => {
     await page.goto('/');
     await waitForDashboard(page);
     await expect(page.getByRole('heading', { name: 'לוח בקרה', exact: true })).toBeVisible();
+  });
+
+  // ── Hebrew timeAgo output ─────────────────────────────────
+
+  test('Hebrew last-exchange label uses Hebrew time-ago strings', async ({ page }) => {
+    // Supply a very old lastExchange so timeAgo returns days
+    await setupMockApi(page, {
+      getDashboard: {
+        ...( await import('./helpers/mock-api.js').then(m => m.DASHBOARD_RESPONSE) ),
+        lastExchange: { date: '2000-01-01', time: '00:00' }
+      }
+    });
+    await page.addInitScript(() => { localStorage.setItem('pd_lang', 'he'); });
+    await page.goto('/');
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    // Hebrew days-ago string is "לפני X ימ'"
+    await expect(page.locator('.card-sub').filter({ hasText: "ימ'" }).first()).toBeVisible({ timeout: 8000 });
   });
 
   // ── Language toggle active state ──────────────────────────

@@ -47,6 +47,14 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
+
+/* Accessibility: keyboard focus ring */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Accessibility: honour reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -284,7 +292,7 @@ textarea, input { font: inherit; }
   gap: 8px;
 }
 .bag-hero::before {
-  content: ''; position: absolute; right: -20px; bottom: -30px;
+  content: ''; position: absolute; inset-inline-end: -20px; bottom: -30px;
   width: 90px; height: 90px; border-radius: 50%;
   background: color-mix(in srgb, var(--bag) 18%, transparent);
   pointer-events: none;
@@ -490,7 +498,7 @@ textarea, input { font: inherit; }
 [data-theme="dark"] .bag-pick-pct { color: color-mix(in srgb, var(--bag) 70%, #fff 30%); }
 .bag-pick-stock { font-size: 11px; color: var(--text-3); margin-top: 2px; }
 .bag-pick-check {
-  position: absolute; top: 7px; right: 7px;
+  position: absolute; top: 7px; inset-inline-end: 7px;
   width: 18px; height: 18px; border-radius: 50%;
   background: var(--bag); color: white;
   display: flex; align-items: center; justify-content: center;

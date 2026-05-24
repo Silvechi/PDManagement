@@ -49,7 +49,8 @@ export const DASHBOARD_RESPONSE = {
     { date: '2026-05-20', time: '08:30', systolic: 128, diastolic: 82 },
     { date: '2026-05-21', time: '09:00', systolic: 131, diastolic: 85 }
   ],
-  bpAvg: { systolic: 128, diastolic: 82 }
+  bpAvg: { systolic: 128, diastolic: 82 },
+  dataVersion: '1'
   // no lastExchange by default → no overdue banner
 };
 

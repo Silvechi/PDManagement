@@ -94,6 +94,7 @@ PDManagement/
     ├── dashboard.spec.js
     ├── measurements.spec.js
     ├── inventory.spec.js
+    ├── history.spec.js
     ├── i18n.spec.js
     ├── timer.spec.js
     └── navigation.spec.js
@@ -242,6 +243,4 @@ Tests mock the Apps Script API via `page.route()` — no real Google account is 
 
 | # | Issue | Priority |
 |---|---|---|
-| Bug #7 | Dashboard makes two `getDashboard` calls on startup | Low |
 | Bug #8 | Dashboard tab can't be re-tapped to refresh data | Low |
-| i18n gap | `timeAgo()` in `app.js` outputs English strings (`'5m ago'`, `'2h ago'`) — shows up in "Last exchange" and "Last {ago}" on the Log screen | Low |

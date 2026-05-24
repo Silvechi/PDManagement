@@ -240,7 +240,7 @@ function getDashboard(patientId) {
   }
 
   return {
-    configVersion:   readConfigVersion(),
+    dataVersion:     _readDataLastUpdated(),
     inventoryConfig: inventoryConfig,
     inventory:       inventory,
     lowStockFlags:   lowStockArr.join(', '),

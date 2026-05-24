@@ -86,7 +86,7 @@ function _renderSettingsPage(container, patients) {
       </div>
 
       <section class="card">
-        <div class="card-label">${t('settings.appearance')}</div>
+        <div class="card-head"><h2 class="card-title">${t('settings.appearance')}</h2></div>
         <div class="settings-row">
           <span class="settings-row-label">${t('settings.theme')}</span>
           <div class="tab-pill" style="width:auto">
@@ -108,7 +108,7 @@ function _renderSettingsPage(container, patients) {
       </section>
 
       <section class="card">
-        <div class="card-label">${t('settings.active_user')}</div>
+        <div class="card-head"><h2 class="card-title">${t('settings.active_user')}</h2></div>
         ${activePatient
           ? `<div class="settings-row">
                <div>
@@ -250,7 +250,8 @@ function _renderUserForm(container, patient) {
         </div>
         ` : ''}
         <button class="primary-btn full-width" id="uf-submit"
-                onclick="_usersSubmitForm(${isEdit ? `'${escHtml(patient.patientId)}'` : 'null'})">
+                data-patient-id="${isEdit ? escHtml(patient.patientId) : ''}"
+                onclick="_usersSubmitForm(this.dataset.patientId || null)">
           ${isEdit ? t('users.form.save') : t('users.form.add')}
         </button>
         <p id="uf-msg" class="auth-msg" style="margin-top:8px"></p>

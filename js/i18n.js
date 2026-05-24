@@ -7,7 +7,8 @@ let currentLang = (function () {
   try { return localStorage.getItem('pd_lang') || 'en'; } catch { return 'en'; }
 })();
 
-// Set dir immediately so layout is correct before first render
+// Set dir + lang immediately so layout and screen readers are correct before first render
+document.documentElement.lang = currentLang;
 if (currentLang === 'he') document.documentElement.dir = 'rtl';
 
 function t(key, vars) {
@@ -22,7 +23,8 @@ function locale() {
 
 function setLang(lang) {
   currentLang = lang;
-  document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+  document.documentElement.dir  = lang === 'he' ? 'rtl' : 'ltr';
+  document.documentElement.lang = lang;
   try { localStorage.setItem('pd_lang', lang); } catch {}
   if (typeof buildNav === 'function') buildNav();
 }
@@ -38,6 +40,7 @@ const STRINGS = {
     'nav.users':              'Settings',
 
     // ── Common ──────────────────────────────────────────────────
+    'common.offline':         'You are offline — data may be stale',
     'common.loading':         'Loading…',
     'common.saving':          'Saving…',
     'common.error':           'Error: {msg}',
@@ -130,6 +133,7 @@ const STRINGS = {
     'hist.no_data':           'No exchanges in this period.',
     'hist.from':              'From',
     'hist.to':                'To',
+    'hist.range_sep':         '→',
     'hist.drain_fill':        'Drain & Fill',
     'hist.drain':             'Drain only',
     'hist.fill':              'Fill only',
@@ -142,6 +146,12 @@ const STRINGS = {
     'prep.procedure':         'Procedure',
     'prep.no_items':          'No items configured.',
     'prep.no_steps':          'No steps configured.',
+
+    // ── Time-ago ────────────────────────────────────────────────
+    'time.just_now':          'just now',
+    'time.mins_ago':          '{n}m ago',
+    'time.hours_ago':         '{n}h ago',
+    'time.days_ago':          '{n}d ago',
 
     // ── Settings ────────────────────────────────────────────────
     'settings.title':         'Settings',
@@ -217,6 +227,7 @@ const STRINGS = {
     'nav.users':              'הגדרות',
 
     // ── Common ──────────────────────────────────────────────────
+    'common.offline':         'אתה לא מחובר — הנתונים עשויים להיות לא מעודכנים',
     'common.loading':         'טוען…',
     'common.saving':          'שומר…',
     'common.error':           'שגיאה: {msg}',
@@ -309,6 +320,7 @@ const STRINGS = {
     'hist.no_data':           'אין שחלופים בתקופה זו.',
     'hist.from':              'מתאריך',
     'hist.to':                'עד תאריך',
+    'hist.range_sep':         '←',
     'hist.drain_fill':        'ניקוז ומילוי',
     'hist.drain':             'ניקוז בלבד',
     'hist.fill':              'מילוי בלבד',
@@ -321,6 +333,12 @@ const STRINGS = {
     'prep.procedure':         'נוהל',
     'prep.no_items':          'לא הוגדרו פריטים.',
     'prep.no_steps':          'לא הוגדרו שלבים.',
+
+    // ── Time-ago ────────────────────────────────────────────────
+    'time.just_now':          'עכשיו',
+    'time.mins_ago':          'לפני {n} דק\'',
+    'time.hours_ago':         'לפני {n} ש\'',
+    'time.days_ago':          'לפני {n} ימ\'',
 
     // ── Settings ────────────────────────────────────────────────
     'settings.title':         'הגדרות',

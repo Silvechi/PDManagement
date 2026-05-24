@@ -88,7 +88,7 @@ async function _dashFetch(patientId, silent = false) {
   try {
     const fresh = await API.getDashboard(patientId);
     dashboardData = fresh;
-    const version = fresh.configVersion || null;
+    const version = fresh.dataVersion || null;
     _dashWriteCache(patientId, version, fresh);
     renderDashboardContent(fresh);
     _dashSetUpdated(Date.now());

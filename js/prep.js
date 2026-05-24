@@ -3,7 +3,7 @@
 // ============================================================
 
 let prepConfig   = null;
-let _prepVersion = null; // configVersion at last load, for in-memory invalidation
+let _prepVersion = null; // dataVersion at last load, for in-memory invalidation
 const _PREP_CACHE_KEY = 'pd_config_v1';
 
 async function renderPrep(container) {
@@ -20,7 +20,7 @@ async function renderPrep(container) {
     </div>
   `;
 
-  const dashVersion = getDashboardData()?.configVersion || null;
+  const dashVersion = getDashboardData()?.dataVersion || null;
 
   // In-memory hit — valid if version still matches (or no version tracking)
   if (prepConfig) {
@@ -32,7 +32,8 @@ async function renderPrep(container) {
   }
 
   // localStorage hit — use only if version matches
-  const cached = localStorage.getItem(_PREP_CACHE_KEY);
+  let cached = null;
+  try { cached = localStorage.getItem(_PREP_CACHE_KEY); } catch {}
   if (cached) {
     try {
       const entry = JSON.parse(cached);
@@ -51,7 +52,7 @@ async function renderPrep(container) {
   try {
     const fresh = await API.getConfig();
     prepConfig   = fresh;
-    _prepVersion = getDashboardData()?.configVersion || null;
+    _prepVersion = getDashboardData()?.dataVersion || null;
     try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version: _prepVersion, data: fresh })); } catch {}
     renderPrepContent(prepConfig);
   } catch (err) {

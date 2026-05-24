@@ -153,6 +153,72 @@ Three fixed steps (not a slider — sliders are hard to use with gloves):
 
 ---
 
+### ~~#33 — History date-range separator hardcoded `→` — wrong direction in RTL~~ ✓ Fixed (May 2026)
+
+`history.js` used a hardcoded `→` character as the date-range separator. In Hebrew/RTL the "from" input is on the physical right and "to" is on the left, so `→` (pointing right = toward the "from" side) is semantically backwards. Added `'hist.range_sep'` i18n key (`→` EN, `←` HE). Updated `history.js` to use `t('hist.range_sep')`. Added two separator-direction tests to `history.spec.js`.
+
+Added `'common.offline'` i18n key in both languages and updated `app.js` to use `t('common.offline')` instead of a hardcoded English string.
+
+---
+
+### ~~#7 — Dashboard version mismatch caused double `getDashboard` call on every startup~~ ✓ Fixed (May 2026)
+
+`getDashboard` was returning `configVersion: readConfigVersion()` (Config sheet's `meta | lastUpdated` key) while `_dashBackgroundRefresh` compared it against `getDataVersion()` (Config sheet's `meta | dataLastUpdated` key). These are two completely different meta keys, so the version comparison always differed, causing a background re-fetch on every page load.
+
+Fixed: `getDashboard` now returns `dataVersion: _readDataLastUpdated()` — the same key that `getDataVersion()` reads. `dashboard.js` and `prep.js` updated to use `fresh.dataVersion`. `DASHBOARD_RESPONSE` in `mock-api.js` gains `dataVersion: '1'`. One test override that relied on the always-re-fetch behaviour was updated to use `dataVersion: '2'` + `getDataVersion: { version: '2' }` to deliberately bust the cache.
+
+---
+
+### ~~#25 — RTL: bag-pick checkmark and bag-hero bubble used physical `right` instead of `inset-inline-end`~~ ✓ Fixed (May 2026)
+
+`.bag-pick-check` and `.bag-hero::before` used `right:` which places them on the physical right edge regardless of text direction. In RTL mode the checkmark appeared at the "start" of the card (the logical wrong corner) and the decorative bubble overflowed the wrong edge. Both changed to `inset-inline-end:`.
+
+---
+
+### ~~#26 — users.js: patientId single-quote could break inline onclick JS~~ ✓ Fixed (May 2026)
+
+`_renderUserForm` built `onclick="_usersSubmitForm('${escHtml(patient.patientId)}')"`. `escHtml` escapes `"` but not `'`, so a patientId containing a single quote would terminate the JS string early, breaking the handler. Fixed by storing the ID in a `data-patient-id` attribute and reading `this.dataset.patientId` in the onclick (same pattern already used by `_userCardHtml`).
+
+---
+
+### ~~#27 — prep.js: localStorage.getItem called outside try-catch~~ ✓ Fixed (May 2026)
+
+---
+
+### ~~#28 — i18n: `<html lang>` attribute not updated when language changes~~ ✓ Fixed (May 2026)
+
+`i18n.js` updated `dir` but not `lang` on language switch. Screen readers use `lang` to choose the correct pronunciation engine, so leaving it as `en` in Hebrew mode meant Hebrew was being mispronounced. Fixed in both the startup IIFE and in `setLang()`.
+
+---
+
+### ~~#29 — Settings screen headings used `.card-label` (undefined CSS class)~~ ✓ Fixed (May 2026)
+
+The "Appearance" and "Active User" section headings in `_renderSettingsPage` used `<div class="card-label">` which has no styles — they rendered as unstyled text. Changed to the standard `<div class="card-head"><h2 class="card-title">` pattern used on every other screen.
+
+---
+
+### ~~#30 — Drum picker scroll test flaky on mobile (2 s waitForFunction too tight)~~ ✓ Fixed (May 2026)
+
+---
+
+### ~~#31 — `timeAgo()` always outputs English strings regardless of active language~~ ✓ Fixed (May 2026)
+
+`timeAgo()` in `app.js` hard-coded English strings (`'5m ago'`, `'2h ago'`, `'3d ago'`). In Hebrew mode this meant "Last exchange 5m ago" contained mixed Hebrew/English. Fixed by extracting strings into `i18n.js` under the `time.*` key group and updating `timeAgo()` to call `t()`.
+
+---
+
+### ~~#32 — CSS: no focus-visible outline or prefers-reduced-motion rule~~ ✓ Fixed (May 2026)
+
+Two one-liner accessibility rules added to `styles.css`:
+- `:focus-visible` global outline using `var(--accent)` — keyboard users now get a visible focus ring on every interactive element
+- `@media (prefers-reduced-motion: reduce)` block that disables all transitions and animations — respects OS-level accessibility setting
+
+`clicking a drum item changes the value` used `waitForFunction` with a 2000ms timeout to wait for the smooth-scroll animation to settle. On mobile the animation occasionally takes longer, causing sporadic failures. Replaced with Playwright's auto-retrying `toHaveCSS('opacity', '1', { timeout: 5000 })` which polls until the state is correct.
+
+`renderPrep` called `localStorage.getItem()` directly. In browsers with storage access blocked (e.g. private-mode restrictions), this can throw a `SecurityError`. Wrapped in `try {}` to match the rest of the codebase.
+
+---
+
 ## Done
 
 ### ~~#6 — Token visible in browser history + password-based recovery~~ ✓ Done (May 2026)
@@ -191,4 +257,4 @@ Cache-first render with per-patient localStorage key (`dashboard_<patientId>`). 
 
 Full Hebrew translation in `js/i18n.js`. Language toggle in Settings. RTL layout via CSS logical properties + `dir="rtl"` on `<html>`. Preference persisted to localStorage and synced to Tokens sheet via `savePreferences`.
 
-**Remaining gap:** `timeAgo()` in `app.js` still returns English strings (`'5m ago'`, `'2h ago'`, `'3d ago'`). Affects "Last exchange {ago}" on Dashboard and "Last {ago}" on the Log screen. Low priority — wrap `timeAgo()` outputs with `t()` keys when addressed.
+**~~Remaining gap~~:** ~~`timeAgo()` in `app.js` still returns English strings.~~ Fixed in May 2026 — see #31.

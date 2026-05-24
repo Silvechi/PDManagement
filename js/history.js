@@ -65,7 +65,7 @@ async function renderHistory(container) {
             <input type="date" class="hist-date-input" id="hist-from"
                    value="${_histFrom}" max="${_todayStr()}" onchange="onHistFromChange(this.value)">
           </div>
-          <span class="hist-daterange-sep">→</span>
+          <span class="hist-daterange-sep">${t('hist.range_sep')}</span>
           <div class="hist-daterange-field">
             <label class="hist-daterange-label" for="hist-to">${t('hist.to')}</label>
             <input type="date" class="hist-date-input" id="hist-to"

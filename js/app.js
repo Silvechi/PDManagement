@@ -51,10 +51,10 @@ function timeAgo(dateStr, timeStr) {
   const dt   = new Date(dateStr + 'T' + (timeStr || '00:00') + ':00');
   const diff = Math.floor((Date.now() - dt.getTime()) / 60000);
   if (isNaN(diff) || diff < 0) return '';
-  if (diff < 1)    return 'just now';
-  if (diff < 60)   return diff + 'm ago';
-  if (diff < 1440) return Math.floor(diff / 60) + 'h ago';
-  return Math.floor(diff / 1440) + 'd ago';
+  if (diff < 1)    return t('time.just_now');
+  if (diff < 60)   return t('time.mins_ago',  { n: diff });
+  if (diff < 1440) return t('time.hours_ago', { n: Math.floor(diff / 60) });
+  return t('time.days_ago', { n: Math.floor(diff / 1440) });
 }
 
 function escHtml(str) {
@@ -223,12 +223,12 @@ function checkConnectivity() {
   const banner = document.getElementById('offline-banner');
   if (!banner) return;
   if (!navigator.onLine) {
-    banner.textContent = 'You are offline — data may be stale';
+    banner.textContent = t('common.offline');
     banner.style.display = 'block';
   }
   window.addEventListener('online',  () => { banner.style.display = 'none'; });
   window.addEventListener('offline', () => {
-    banner.textContent = 'You are offline — data may be stale';
+    banner.textContent = t('common.offline');
     banner.style.display = 'block';
   });
 }

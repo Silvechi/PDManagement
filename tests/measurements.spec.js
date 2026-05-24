@@ -31,7 +31,7 @@ test.describe('Log Measurements', () => {
     await expect(page.locator('#meas-tab-bp')).toBeVisible();
   });
 
-  test('Drainage is the default active tab', async ({ page }) => {
+  test('Exchange tab is active by default', async ({ page }) => {
     await expect(page.locator('#meas-tab-bag')).toHaveClass(/active/);
     await expect(page.locator('#m-bag-card')).toBeVisible();
     await expect(page.locator('#m-weight-card')).not.toBeVisible();
@@ -75,17 +75,10 @@ test.describe('Log Measurements', () => {
   });
 
   test('clicking a drum item changes the value', async ({ page }) => {
-    // Click item 5 in the integer picker
     await page.locator('#bag-int-dp .drum-item[data-v="5"]').click();
-    // Wait for scroll animation to settle, then check opacity
-    await page.waitForFunction(() => {
-      const el = document.querySelector('#bag-int-dp .drum-item[data-v="5"]');
-      return el && parseFloat(el.style.opacity) === 1;
-    }, { timeout: 2000 });
-    const opacity = await page.locator('#bag-int-dp .drum-item[data-v="5"]').evaluate(
-      el => parseFloat(el.style.opacity)
-    );
-    expect(opacity).toBe(1);
+    // toHaveCSS auto-retries until animation settles (avoids flakiness from smooth-scroll timing)
+    await expect(page.locator('#bag-int-dp .drum-item[data-v="5"]'))
+      .toHaveCSS('opacity', '1', { timeout: 5000 });
   });
 
   test('weight card has drum pickers for each digit', async ({ page }) => {

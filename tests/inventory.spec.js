@@ -150,8 +150,10 @@ test.describe('Inventory Manager', () => {
         inventoryConfig: [{ name: 'פקקים', min: 10 }],
         inventory: { 'פקקים': 5 },
         lowStockFlags: '',
-        weightTrend: [], bpRecent: [], bpAvg: null
-      }
+        weightTrend: [], bpRecent: [], bpAvg: null,
+        dataVersion: '2'  // differs from beforeEach cache ('1') → forces background re-fetch
+      },
+      getDataVersion: { version: '2' }
     });
     await page.goto('/');
     await expect(page.locator('#dash-loading')).not.toBeVisible({ timeout: 8000 });

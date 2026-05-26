@@ -1006,18 +1006,86 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
 .settings-row-sub { font-size: 13px; color: var(--text-3); margin-top: 2px; }
 
 /* ── Text size accessibility ──────────────────────────────── */
-/* Scales body/content text. Drums, headings, and nav are intentionally excluded. */
-.text-lg .prep-item, .text-lg .step-text,
-.text-lg .page-sub, .text-lg .inv-row-label,
-.text-lg .no-data, .text-lg .feedback,
-.text-lg .loading-state, .text-lg .settings-row-label,
-.text-lg .user-card-name, .text-lg .auth-sub { font-size: 17px; }
+/* Two tiers:
+   Primary (14–16px base) → 17px / 19px
+   Secondary (11–13px base) → 14px / 16px
+   Excluded: page/card titles, bottom nav, drum digits, numeric vitals */
 
-.text-xl .prep-item, .text-xl .step-text,
-.text-xl .page-sub, .text-xl .inv-row-label,
-.text-xl .no-data, .text-xl .feedback,
-.text-xl .loading-state, .text-xl .settings-row-label,
-.text-xl .user-card-name, .text-xl .auth-sub { font-size: 19px; }
+/* Primary — buttons, labels, main content */
+.text-lg .tab-pill-btn,
+.text-lg .seg,
+.text-lg .prep-item,
+.text-lg .step-text,
+.text-lg .page-sub,
+.text-lg .inv-row-label,
+.text-lg .no-data,
+.text-lg .feedback,
+.text-lg .loading-state,
+.text-lg .settings-row-label,
+.text-lg .user-card-name,
+.text-lg .auth-sub,
+.text-lg .auth-input,
+.text-lg .auth-btn,
+.text-lg .form-input,
+.text-lg .primary-btn,
+.text-lg .ghost-btn,
+.text-lg .hist-time,
+.text-lg .hist-detail,
+.text-lg .card-low-stock-inner,
+.text-lg .card-overdue-inner { font-size: 17px; }
+
+/* Secondary — dates, chips, hints, meta text */
+.text-lg .hist-date-hdr,
+.text-lg .hist-chip,
+.text-lg .hist-notes,
+.text-lg .card-sub,
+.text-lg .vitals-label,
+.text-lg .vitals-meta,
+.text-lg .activity-meta,
+.text-lg .used-label,
+.text-lg .inv-row-hint,
+.text-lg .settings-row-sub,
+.text-lg .user-card-sub,
+.text-lg .form-label,
+.text-lg .bp-status { font-size: 14px; }
+
+/* Primary x-large */
+.text-xl .tab-pill-btn,
+.text-xl .seg,
+.text-xl .prep-item,
+.text-xl .step-text,
+.text-xl .page-sub,
+.text-xl .inv-row-label,
+.text-xl .no-data,
+.text-xl .feedback,
+.text-xl .loading-state,
+.text-xl .settings-row-label,
+.text-xl .user-card-name,
+.text-xl .auth-sub,
+.text-xl .auth-input,
+.text-xl .auth-btn,
+.text-xl .form-input,
+.text-xl .primary-btn,
+.text-xl .ghost-btn,
+.text-xl .hist-time,
+.text-xl .hist-detail,
+.text-xl .card-low-stock-inner,
+.text-xl .card-overdue-inner { font-size: 19px; }
+
+/* Secondary x-large */
+.text-xl .hist-date-hdr,
+.text-xl .hist-chip,
+.text-xl .hist-notes,
+.text-xl .card-sub,
+.text-xl .vitals-label,
+.text-xl .vitals-meta,
+.text-xl .activity-meta,
+.text-xl .used-label,
+.text-xl .inv-row-hint,
+.text-xl .settings-row-sub,
+.text-xl .user-card-sub,
+.text-xl .form-label,
+.text-xl .bp-status { font-size: 16px; }
 
 /* ── Users screen ─────────────────────────────────────────── */
 .user-card {

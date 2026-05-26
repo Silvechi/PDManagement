@@ -6,30 +6,30 @@
 // ============================================================
 
 // Default config written by setupSheet() if Config tab is empty.
-// Columns: Category | Key/Name | Value/Min | Description | isBag | active | color | displayName | maxHours | reorderDays
+// Columns: Category | Key/Name | Value/Min | Description | isBag | active | color | displayName | maxHours | reorderDays | displayNameHe | valueHe | descriptionHe
 var CONFIG_DEFAULTS = [
-  // Inventory bags — isBag=true, active=true, color, displayName, maxHours (leave reorderDays blank)
-  // ['inventory', 'Solution Bags 1.36%', '5', 'Description here.', true, true, '#E8A317', '1.36%', '6',  ''],
-  // ['inventory', 'Solution Bags 2.27%', '5', 'Description here.', true, true, '#2BA15A', '2.27%', '6',  ''],
-  // ['inventory', 'Solution Bags 3.86%', '5', 'Description here.', true, true, '#C0392B', '3.86%', '6',  ''],
-  // ['inventory', 'Overnight Bag',       '2', 'Description here.', true, true, '#8E44AD', 'Night', '10', ''],
+  // Inventory bags — isBag=true, active=true, color, displayName, maxHours (leave reorderDays blank), optional Hebrew displayNameHe
+  // ['inventory', 'Solution Bags 1.36%', '5', 'Description here.', true, true, '#E8A317', '1.36%', '6',  '', 'שקית 1.36%', '', ''],
+  // ['inventory', 'Solution Bags 2.27%', '5', 'Description here.', true, true, '#2BA15A', '2.27%', '6',  '', 'שקית 2.27%', '', ''],
+  // ['inventory', 'Solution Bags 3.86%', '5', 'Description here.', true, true, '#C0392B', '3.86%', '6',  '', 'שקית 3.86%', '', ''],
+  // ['inventory', 'Overnight Bag',       '2', 'Description here.', true, true, '#8E44AD', 'Night', '10', '', 'שקית לילה',  '', ''],
 
-  // Inventory supplies — isBag=false, active=true, leave maxHours blank, set reorderDays
-  // ['inventory', 'Caps',        '10', 'Description here.', false, true, '', '', '', '14'],
-  // ['inventory', 'Gauze Pads',  '10', '',                  false, true, '', '', '', '14'],
-  // ['inventory', 'Tape',        '5',  '',                  false, true, '', '', '', '14'],
-  // ['inventory', 'Disinfectant','3',  '',                  false, true, '', '', '', '14'],
+  // Inventory supplies — isBag=false, active=true, leave maxHours blank, set reorderDays, optional Hebrew displayNameHe
+  // ['inventory', 'Caps',        '10', 'Description here.', false, true, '', '', '', '14', 'פקקים',  '', ''],
+  // ['inventory', 'Gauze Pads',  '10', '',                  false, true, '', '', '', '14', 'גזה',    '', ''],
+  // ['inventory', 'Tape',        '5',  '',                  false, true, '', '', '', '14', 'סלוטייפ','', ''],
+  // ['inventory', 'Disinfectant','3',  '',                  false, true, '', '', '', '14', 'חיטוי',  '', ''],
 
-  // Prep checklist items (columns E-J unused — leave empty)
-  // ['prep_items', '1', 'Item text', '', '', '', '', '', '', ''],
-  // ['prep_items', '2', 'Item text', 'Optional description', '', '', '', '', '', ''],
+  // Prep checklist items — cols E-J unused. Add Hebrew text in valueHe (col L), Hebrew description in descriptionHe (col M)
+  // ['prep_items', '1', 'Item text', '',                     '', '', '', '', '', '', '', 'טקסט בעברית', ''],
+  // ['prep_items', '2', 'Item text', 'Optional description', '', '', '', '', '', '', '', 'טקסט בעברית', 'תיאור בעברית'],
 
-  // Procedure steps (columns E-J unused — leave empty)
-  // ['prep_steps', '1',  'Step text', '', '', '', '', '', '', ''],
-  // ['prep_steps', '2',  'Step text', '', '', '', '', '', '', ''],
+  // Procedure steps — same pattern
+  // ['prep_steps', '1', 'Step text', '',                     '', '', '', '', '', '', '', 'שלב בעברית', ''],
+  // ['prep_steps', '2', 'Step text', 'Optional description', '', '', '', '', '', '', '', 'שלב בעברית', 'תיאור בעברית'],
 
   // Meta rows — seeded by setupSheet(); keep here so a fresh Config write includes them
-  ['meta', 'dataLastUpdated',  '', '', '', '', '', '', '', ''],
-  ['meta', 'maxExchangeHours', '6', '', '', '', '', '', '', ''],
-  ['meta', 'exportEmail',      '', '', '', '', '', '', '', ''],
+  ['meta', 'dataLastUpdated',  '', '', '', '', '', '', '', '', '', '', ''],
+  ['meta', 'maxExchangeHours', '6', '', '', '', '', '', '', '', '', '', ''],
+  ['meta', 'exportEmail',      '', '', '', '', '', '', '', '', '', '', ''],
 ];

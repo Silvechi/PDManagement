@@ -20,7 +20,7 @@ var TAB = {
 var HEADERS = {
   Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type', 'PatientID', 'Fill Volume (L)', 'DeviceToken'],
   Inventory:          ['DateTime', 'Item Name', 'Count', 'PatientID', 'DeviceToken'],
-  Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName', 'maxHours', 'reorderDays'],
+  Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName', 'maxHours', 'reorderDays', 'displayNameHe', 'valueHe', 'descriptionHe'],
   Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used', 'PasswordHash', 'ActivePatientID', 'Theme', 'Language'],
   Patients:           ['PatientID', 'Name', 'DOB', 'Comment', 'Active', 'LastUpdated']
 };
@@ -309,13 +309,16 @@ function getConfig() {
   var prepSteps   = {};
 
   if (configSheet && configSheet.getLastRow() > 1) {
-    var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 4).getValues();
+    var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 13).getValues();
     rows.forEach(function(row) {
       var cat  = String(row[0]);
       var key  = parseInt(row[1]) || 0;
-      var text = String(row[2]);
-      var desc = row[3] !== undefined && row[3] !== null ? String(row[3]) : '';
-      var entry = desc.trim() ? { text: text, description: desc } : text;
+      var entry = {
+        text:          String(row[2]  || ''),
+        description:   String(row[3]  || ''),
+        textHe:        String(row[11] || ''),
+        descriptionHe: String(row[12] || '')
+      };
       if (cat === 'prep_items') prepItems[key] = entry;
       else if (cat === 'prep_steps') prepSteps[key] = entry;
     });
@@ -424,7 +427,7 @@ function setupSheet() {
       : [];
     metaKeys.forEach(function(key) {
       if (existingKeys.indexOf(key) === -1) {
-        configSheet.appendRow(['meta', key, metaDefaults[key], '', '', '', '', '', '', '']);
+        configSheet.appendRow(['meta', key, metaDefaults[key], '', '', '', '', '', '', '', '', '', '']);
       }
     });
   }
@@ -540,7 +543,7 @@ function readInventoryConfig() {
   var result = [];
   var globalMaxHours = null;
   if (configSheet && configSheet.getLastRow() > 1) {
-    var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 10).getValues();
+    var rows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 11).getValues();
     rows.forEach(function(row) {
       if (String(row[0]) === 'meta' && String(row[1]) === 'maxExchangeHours') {
         var v = row[2];
@@ -562,8 +565,9 @@ function readInventoryConfig() {
             if (typeof v === 'number') return (Math.round(v * 10000) / 100) + '%';
             return v ? String(v) : '';
           })(row[7]),
-          maxHours:    itemMaxHours !== null ? itemMaxHours : globalMaxHours,
-          reorderDays: row[9] !== '' && row[9] !== null ? parseInt(row[9]) : null
+          maxHours:       itemMaxHours !== null ? itemMaxHours : globalMaxHours,
+          reorderDays:    row[9]  !== '' && row[9]  !== null ? parseInt(row[9]) : null,
+          displayNameHe:  row[10] ? String(row[10]) : ''
         });
       }
     });

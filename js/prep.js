@@ -77,15 +77,18 @@ function renderPrepContent(cfg) {
 
   const itemsHtml = cfg.prepItems?.length
     ? cfg.prepItems.map(item => {
-        const text = typeof item === 'string' ? item : (item.text || '');
+        const raw  = typeof item === 'string' ? item : (item.text || '');
+        const text = (currentLang === 'he' && typeof item === 'object' && item.textHe) ? item.textHe : raw;
         return `<li class="prep-item"><span class="prep-dot"></span><span>${escHtml(text)}</span></li>`;
       }).join('')
     : `<li class="prep-item" style="color:var(--text-3)">${t('prep.no_items')}</li>`;
 
   const stepsHtml = cfg.prepSteps?.length
     ? cfg.prepSteps.map((step, i) => {
-        const text = typeof step === 'string' ? step : (step.text || '');
-        const desc = typeof step === 'string' ? '' : (step.description || '');
+        const rawText = typeof step === 'string' ? step : (step.text || '');
+        const rawDesc = typeof step === 'string' ? '' : (step.description || '');
+        const text = (currentLang === 'he' && typeof step === 'object' && step.textHe) ? step.textHe : rawText;
+        const desc = (currentLang === 'he' && typeof step === 'object' && step.descriptionHe) ? step.descriptionHe : rawDesc;
         return `
           <li class="step">
             <span class="step-num">${i + 1}</span>

@@ -105,7 +105,7 @@ function renderSupplyRows(supplyItems) {
       <li class="inv-row${low ? ' low' : ''}" id="inv-supply-row-${idx}">
         <div class="inv-row-info">
           <div class="inv-row-label">
-            ${escHtml(item.name)}
+            ${escHtml((currentLang === 'he' && item.displayNameHe) ? item.displayNameHe : item.name)}
             ${low ? `<span class="low-tag">${t('common.low')}</span>` : ''}
           </div>
           ${item.description

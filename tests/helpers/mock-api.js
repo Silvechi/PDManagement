@@ -10,13 +10,13 @@ export const MOCK_URL = 'http://localhost:3333/mock-api';
 
 // Bag items — name-based isBag detection works via '1.36%' / '2.27%' / '3.86%' substring match
 export const INVENTORY_CONFIG = [
-  { name: 'Solution Bags 1.36%', min: 5,  maxHours: 6, description: 'Yellow bag. Check expiry before use.' },
-  { name: 'Solution Bags 2.27%', min: 5,  maxHours: 6, description: 'Green bag. Check expiry before use.' },
-  { name: 'Solution Bags 3.86%', min: 5,  maxHours: 6, description: 'Pink bag. Check expiry before use.' },
-  { name: 'Caps',                min: 10, description: 'Replace the cap on the transfer set after every exchange.' },
-  { name: 'Gauze Pads',          min: 10, description: '' },
-  { name: 'Bandages',            min: 10, description: '' },
-  { name: 'Ointment (units)',    min: 10, description: 'Apply a small amount around the exit site at each dressing change.' }
+  { name: 'Solution Bags 1.36%', min: 5,  maxHours: 6, description: 'Yellow bag. Check expiry before use.',                           displayNameHe: 'שקית 1.36%' },
+  { name: 'Solution Bags 2.27%', min: 5,  maxHours: 6, description: 'Green bag. Check expiry before use.',                            displayNameHe: 'שקית 2.27%' },
+  { name: 'Solution Bags 3.86%', min: 5,  maxHours: 6, description: 'Pink bag. Check expiry before use.',                             displayNameHe: 'שקית 3.86%' },
+  { name: 'Caps',                min: 10, description: 'Replace the cap on the transfer set after every exchange.',                    displayNameHe: 'פקקים' },
+  { name: 'Gauze Pads',          min: 10, description: '',                                                                             displayNameHe: 'גזה' },
+  { name: 'Bandages',            min: 10, description: '',                                                                             displayNameHe: 'תחבושות' },
+  { name: 'Ointment (units)',    min: 10, description: 'Apply a small amount around the exit site at each dressing change.',           displayNameHe: 'משחה (יחידות)' }
 ];
 
 // Bag items are indices 0-2; supply items are indices 3-6
@@ -56,24 +56,24 @@ export const DASHBOARD_RESPONSE = {
 
 export const CONFIG_RESPONSE = {
   prepItems: [
-    { text: 'Sterile gloves', description: 'Use the size that fits you. Non-sterile gloves are not sufficient for this step.' },
-    { text: 'Dialysis solution bags (check type and expiry)', description: 'Check the label matches your prescription.' },
-    'Cap replacements',
-    'Gauze pads',
-    { text: 'Antiseptic ointment', description: 'Apply a small amount around the exit site after cleaning.' },
-    { text: 'Clean workspace / tray', description: 'Wipe the surface with a disinfectant cloth and let it dry.' }
+    { text: 'Sterile gloves',                              description: 'Use the size that fits you. Non-sterile gloves are not sufficient for this step.', textHe: 'כפפות סטריליות',                             descriptionHe: 'השתמש בגודל המתאים לך. כפפות לא סטריליות אינן מספיקות לשלב זה.' },
+    { text: 'Dialysis solution bags (check type and expiry)', description: 'Check the label matches your prescription.',                                    textHe: 'שקיות תמיסה לדיאליזה (בדוק סוג ותוקף)',       descriptionHe: 'ודא שהתווית תואמת את המרשם שלך.' },
+    { text: 'Cap replacements',                            description: '',                                                                                  textHe: 'פקקים חלופיים',                               descriptionHe: '' },
+    { text: 'Gauze pads',                                  description: '',                                                                                  textHe: 'גזה',                                         descriptionHe: '' },
+    { text: 'Antiseptic ointment',                         description: 'Apply a small amount around the exit site after cleaning.',                        textHe: 'משחה אנטיספטית',                              descriptionHe: 'מרח כמות קטנה סביב אתר היציאה לאחר ניקוי.' },
+    { text: 'Clean workspace / tray',                      description: 'Wipe the surface with a disinfectant cloth and let it dry.',                       textHe: 'משטח עבודה נקי / מגש',                        descriptionHe: 'נגב את המשטח עם מטלית חיטוי והמתן לייבוש.' }
   ],
   prepSteps: [
-    { text: 'Wash hands thoroughly for at least 30 seconds', description: 'Use soap and water. Scrub between fingers and under nails.' },
-    'Put on sterile mask and gloves',
-    'Prepare solution bags and check expiry dates',
-    { text: 'Connect fresh bag to transfer set', description: "Follow your clinic's protocol. Never touch the spike tip." },
-    { text: 'Allow drainage (approximately 20–30 minutes)', description: 'Keep the drain bag below the level of your abdomen.' },
-    'Infuse fresh dialysis solution',
-    'Disconnect and replace exit-site cap',
-    { text: 'Clean exit site and apply fresh dressing', description: 'Clean in a circular motion from the centre outward.' },
-    { text: 'Weigh drainage bag and record', description: 'Expected drainage is roughly equal to infused volume ± 200 ml.' },
-    'Dispose of used supplies per protocol'
+    { text: 'Wash hands thoroughly for at least 30 seconds',  description: 'Use soap and water. Scrub between fingers and under nails.',           textHe: 'שטוף ידיים היטב לפחות 30 שניות',              descriptionHe: 'השתמש בסבון ומים. שפשף בין האצבעות ומתחת לציפורניים.' },
+    { text: 'Put on sterile mask and gloves',                  description: '',                                                                     textHe: 'הרכב מסכה וכפפות סטריליות',                   descriptionHe: '' },
+    { text: 'Prepare solution bags and check expiry dates',    description: '',                                                                     textHe: 'הכן שקיות תמיסה ובדוק תאריכי תפוגה',          descriptionHe: '' },
+    { text: 'Connect fresh bag to transfer set',               description: "Follow your clinic's protocol. Never touch the spike tip.",           textHe: 'חבר שקית חדשה לסט ההעברה',                    descriptionHe: 'פעל לפי הנחיות המרפאה. אל תגע בקצה הסיכה.' },
+    { text: 'Allow drainage (approximately 20–30 minutes)',    description: 'Keep the drain bag below the level of your abdomen.',                 textHe: 'אפשר ניקוז (כ-20–30 דקות)',                    descriptionHe: 'שמור את שקית הניקוז מתחת לגובה הבטן.' },
+    { text: 'Infuse fresh dialysis solution',                  description: '',                                                                     textHe: 'הזרם תמיסת דיאליזה חדשה',                      descriptionHe: '' },
+    { text: 'Disconnect and replace exit-site cap',            description: '',                                                                     textHe: 'נתק והחלף את הפקק באתר היציאה',                descriptionHe: '' },
+    { text: 'Clean exit site and apply fresh dressing',        description: 'Clean in a circular motion from the centre outward.',                 textHe: 'נקה את אתר היציאה והנח חבישה חדשה',            descriptionHe: 'נקה בתנועה מעגלית מהמרכז החוצה.' },
+    { text: 'Weigh drainage bag and record',                   description: 'Expected drainage is roughly equal to infused volume ± 200 ml.',      textHe: 'שקול את שקית הניקוז ורשום',                    descriptionHe: 'הניקוז הצפוי שווה בערך לנפח המוזרם ± 200 מ"ל.' },
+    { text: 'Dispose of used supplies per protocol',           description: '',                                                                     textHe: 'סלק חומרים משומשים לפי הפרוטוקול',             descriptionHe: '' }
   ]
 };
 

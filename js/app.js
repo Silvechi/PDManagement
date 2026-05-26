@@ -24,6 +24,7 @@ function isActiveBagItem(item) {
 }
 
 function bagDisplayName(item) {
+  if (currentLang === 'he' && item.displayNameHe) return item.displayNameHe;
   if (item.displayName) return item.displayName;
   return Object.keys(BAG_COLORS).find(t => (item.name || '').includes(t)) || item.name;
 }

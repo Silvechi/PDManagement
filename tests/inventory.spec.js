@@ -144,6 +144,36 @@ test.describe('Inventory Manager', () => {
     await expect(page.locator('#inv-val-1')).toHaveValue('6');
   });
 
+  // ── Hebrew display names ───────────────────────────────────
+
+  test('Hebrew mode shows displayNameHe for bag items', async ({ page }) => {
+    await page.addInitScript(() => { localStorage.setItem('pd_lang', 'he'); });
+    await setupMockApi(page);
+    await page.goto('/');
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    await page.locator('#botnav-inventory').click();
+    await expect(page.locator('#inv-bag-row-0')).toContainText('שקית 1.36%', { timeout: 8000 });
+    await expect(page.locator('#inv-bag-row-1')).toContainText('שקית 2.27%');
+    await expect(page.locator('#inv-bag-row-2')).toContainText('שקית 3.86%');
+  });
+
+  test('Hebrew mode shows displayNameHe for supply items', async ({ page }) => {
+    await page.addInitScript(() => { localStorage.setItem('pd_lang', 'he'); });
+    await setupMockApi(page);
+    await page.goto('/');
+    await expect(page.locator('.bag-hero').first()).toBeVisible({ timeout: 8000 });
+    await page.locator('#botnav-inventory').click();
+    await expect(page.locator('#inv-supply-row-3')).toContainText('פקקים', { timeout: 8000 });
+    await expect(page.locator('#inv-supply-row-4')).toContainText('גזה');
+    await expect(page.locator('#inv-supply-row-5')).toContainText('תחבושות');
+    await expect(page.locator('#inv-supply-row-6')).toContainText('משחה (יחידות)');
+  });
+
+  test('English mode still shows English names when displayNameHe is set', async ({ page }) => {
+    await expect(page.locator('#inv-bag-row-0')).toContainText('1.36%');
+    await expect(page.locator('#inv-supply-row-3')).toContainText('Caps');
+  });
+
   test('+/- buttons work with Hebrew item names', async ({ page }) => {
     await setupMockApi(page, {
       getDashboard: {

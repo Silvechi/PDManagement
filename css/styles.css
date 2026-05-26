@@ -682,7 +682,7 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   letter-spacing: -0.01em;
 }
 .drum-band {
-  position: absolute; left: -2px; right: -2px; top: 50%; height: 44px;
+  position: absolute; left: -2px; right: -2px; top: 50%; height: 52px;
   transform: translateY(-50%);
   border-top: 1.5px solid var(--drum-accent-c);
   border-bottom: 1.5px solid var(--drum-accent-c);
@@ -690,7 +690,7 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   pointer-events: none; z-index: 1;
 }
 .drum-fade-top, .drum-fade-bot {
-  position: absolute; left: 0; right: 0; height: 44px;
+  position: absolute; left: 0; right: 0; height: 52px;
   pointer-events: none; z-index: 2;
 }
 .drum-fade-top { top: 0;    background: linear-gradient(to bottom, var(--drum-bg) 25%, transparent); }

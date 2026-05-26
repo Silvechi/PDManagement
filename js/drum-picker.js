@@ -16,7 +16,7 @@ class DrumPicker {
     this.max      = options.max      ?? 9;
     this._value   = this._clamp(options.value ?? this.min);
     this.onChange = options.onChange ?? (() => {});
-    this.ITEM_H   = 44;
+    this.ITEM_H   = 52;
     this._timer   = null;
     this._build(container);
   }

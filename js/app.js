@@ -92,16 +92,19 @@ const SCREENS = {
   users:        { label: 'Settings',  render: renderSettings     },
 };
 
-let activeScreen = null;
-let currentTheme = 'light';
+let activeScreen    = null;
+let currentTheme    = 'light';
+let currentTextSize = 'normal';
 
 // ============================================================
 // Init
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const savedTheme = localStorage.getItem('pd_theme') || 'light';
+  const savedTheme    = localStorage.getItem('pd_theme')     || 'light';
+  const savedTextSize = localStorage.getItem('pd_text_size') || 'normal';
   applyTheme(savedTheme);
+  applyTextSize(savedTextSize);
   const authed = await initAuth();
   if (!authed) return;
 
@@ -135,6 +138,18 @@ function applyTheme(theme) {
 function toggleTheme() {
   applyTheme(currentTheme === 'light' ? 'dark' : 'light');
   API.savePreferences({ theme: currentTheme }).catch(() => {});
+}
+
+// ============================================================
+// Text size
+// ============================================================
+
+function applyTextSize(size) {
+  currentTextSize = size || 'normal';
+  document.body.classList.remove('text-lg', 'text-xl');
+  if (currentTextSize === 'large')  document.body.classList.add('text-lg');
+  if (currentTextSize === 'xlarge') document.body.classList.add('text-xl');
+  try { localStorage.setItem('pd_text_size', currentTextSize); } catch {}
 }
 
 // ============================================================

@@ -1005,6 +1005,20 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
 .settings-row-label { font-size: 15px; font-weight: 500; color: var(--text); }
 .settings-row-sub { font-size: 13px; color: var(--text-3); margin-top: 2px; }
 
+/* ── Text size accessibility ──────────────────────────────── */
+/* Scales body/content text. Drums, headings, and nav are intentionally excluded. */
+.text-lg .prep-item, .text-lg .step-text,
+.text-lg .page-sub, .text-lg .inv-row-label,
+.text-lg .no-data, .text-lg .feedback,
+.text-lg .loading-state, .text-lg .settings-row-label,
+.text-lg .user-card-name, .text-lg .auth-sub { font-size: 17px; }
+
+.text-xl .prep-item, .text-xl .step-text,
+.text-xl .page-sub, .text-xl .inv-row-label,
+.text-xl .no-data, .text-xl .feedback,
+.text-xl .loading-state, .text-xl .settings-row-label,
+.text-xl .user-card-name, .text-xl .auth-sub { font-size: 19px; }
+
 /* ── Users screen ─────────────────────────────────────────── */
 .user-card {
   display: flex;

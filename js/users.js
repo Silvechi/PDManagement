@@ -78,7 +78,8 @@ async function renderSettings(container) {
 
 function _renderSettingsPage(container, patients) {
   const activePatient = patients.find(p => p.patientId === _activePatientId);
-  const theme = typeof currentTheme !== 'undefined' ? currentTheme : 'light';
+  const theme    = typeof currentTheme    !== 'undefined' ? currentTheme    : 'light';
+  const textSize = typeof currentTextSize !== 'undefined' ? currentTextSize : 'normal';
   container.innerHTML = `
     <div class="page">
       <div class="page-head">
@@ -103,6 +104,17 @@ function _renderSettingsPage(container, patients) {
                     onclick="_settingsSetLang('en')">English</button>
             <button class="tab-pill-btn${currentLang === 'he' ? ' active' : ''}"
                     onclick="_settingsSetLang('he')">עברית</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">${t('settings.text_size')}</span>
+          <div class="tab-pill" style="width:auto">
+            <button class="tab-pill-btn${textSize === 'normal' ? ' active' : ''}"
+                    onclick="_settingsSetTextSize('normal')">${t('settings.text_normal')}</button>
+            <button class="tab-pill-btn${textSize === 'large'  ? ' active' : ''}"
+                    onclick="_settingsSetTextSize('large')">${t('settings.text_large')}</button>
+            <button class="tab-pill-btn${textSize === 'xlarge' ? ' active' : ''}"
+                    onclick="_settingsSetTextSize('xlarge')">${t('settings.text_xlarge')}</button>
           </div>
         </div>
       </section>
@@ -135,6 +147,12 @@ function _settingsSetTheme(theme) {
 function _settingsSetLang(lang) {
   setLang(lang);
   API.savePreferences({ language: lang }).catch(() => {});
+  _renderSettingsPage(document.getElementById('screen-container'), _patientsCache?.patients || []);
+}
+
+function _settingsSetTextSize(size) {
+  applyTextSize(size);
+  API.savePreferences({ textSize: size }).catch(() => {});
   _renderSettingsPage(document.getElementById('screen-container'), _patientsCache?.patients || []);
 }
 

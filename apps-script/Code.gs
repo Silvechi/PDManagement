@@ -21,7 +21,7 @@ var HEADERS = {
   Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type', 'PatientID', 'Fill Volume (L)', 'DeviceToken'],
   Inventory:          ['DateTime', 'Item Name', 'Count', 'PatientID', 'DeviceToken'],
   Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName', 'maxHours', 'reorderDays', 'displayNameHe', 'valueHe', 'descriptionHe'],
-  Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used', 'PasswordHash', 'ActivePatientID', 'Theme', 'Language'],
+  Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used', 'PasswordHash', 'ActivePatientID', 'Theme', 'Language', 'TextSize'],
   Patients:           ['PatientID', 'Name', 'DOB', 'Comment', 'Active', 'LastUpdated']
 };
 
@@ -452,6 +452,7 @@ function validateToken(token) {
         readonly:        status === 'readonly',
         theme:           rows[i][7] ? String(rows[i][7]) : '',
         language:        rows[i][8] ? String(rows[i][8]) : '',
+        textSize:        rows[i][9] ? String(rows[i][9]) : '',
         activePatientId: rows[i][6] ? String(rows[i][6]) : ''
       };
     }
@@ -485,6 +486,7 @@ function loginOrRegister(label, passwordHash, newUUID) {
             readonly:        false,
             theme:           rows[i][7] ? String(rows[i][7]) : '',
             language:        rows[i][8] ? String(rows[i][8]) : '',
+            textSize:        rows[i][9] ? String(rows[i][9]) : '',
             activePatientId: rows[i][6] ? String(rows[i][6]) : ''
           };
         }
@@ -528,6 +530,7 @@ function savePreferences(data) {
       var r = i + 2;
       if (data.theme    !== undefined) sheet.getRange(r, 8).setValue(data.theme);
       if (data.language !== undefined) sheet.getRange(r, 9).setValue(data.language);
+      if (data.textSize !== undefined) sheet.getRange(r, 10).setValue(data.textSize);
       return { success: true };
     }
   }

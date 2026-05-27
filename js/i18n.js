@@ -143,6 +143,7 @@ const STRINGS = {
     // ── Prep ────────────────────────────────────────────────────
     'prep.title':             'Prep',
     'prep.sub':               'Reference card for the exchange procedure',
+    'prep.keep_screen_on':    'Keep screen on',
     'prep.what_to_prepare':   'What to prepare',
     'prep.procedure':         'Procedure',
     'prep.no_items':          'No items configured.',
@@ -335,6 +336,7 @@ const STRINGS = {
     // ── Prep ────────────────────────────────────────────────────
     'prep.title':             'הכנה',
     'prep.sub':               'כרטיס עזר לנוהל השחלוף',
+    'prep.keep_screen_on':    'השאר מסך דולק',
     'prep.what_to_prepare':   'מה להכין',
     'prep.procedure':         'נוהל',
     'prep.no_items':          'לא הוגדרו פריטים.',

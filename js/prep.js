@@ -2,10 +2,74 @@
 // prep.js — Prep reference card screen
 // ============================================================
 
+// ── Screen Wake Lock ──────────────────────────────────────────
+// Keeps the display on while following the exchange procedure.
+// Uses the Web Screen Wake Lock API (supported on Chrome/Android, Safari 16.4+).
+// Falls back gracefully (toggle hidden) on unsupported browsers.
+// Preference persists in localStorage so it survives page reloads mid-procedure.
+
+const _WAKE_LOCK_KEY       = 'pd_prep_wake_lock';
+const _wakeLockSupported   = ('wakeLock' in navigator);
+let   _wakeLockSentinel    = null;                        // current WakeLockSentinel | null
+let   _wakeLockEnabled     = (() => {
+  try { return localStorage.getItem(_WAKE_LOCK_KEY) === '1'; } catch (_) { return false; }
+})();
+
+// Re-acquire after the browser auto-releases the lock (happens when page is hidden,
+// e.g. screen lock, app switch). Called every time the document becomes visible.
+document.addEventListener('visibilitychange', () => {
+  if (_wakeLockEnabled && document.visibilityState === 'visible') _prepRequestWakeLock();
+});
+
+async function _prepRequestWakeLock() {
+  if (!_wakeLockSupported) return;
+  if (_wakeLockSentinel && !_wakeLockSentinel.released) return; // already held
+  try {
+    _wakeLockSentinel = await navigator.wakeLock.request('screen');
+    // Sentinel fires 'release' when the system takes it back (page hidden, low battery, etc.)
+    _wakeLockSentinel.addEventListener('release', () => { _wakeLockSentinel = null; });
+  } catch (_) { /* denied — page not focused or permission refused; fail silently */ }
+}
+
+async function _prepReleaseWakeLock() {
+  if (_wakeLockSentinel && !_wakeLockSentinel.released) {
+    try { await _wakeLockSentinel.release(); } catch (_) {}
+    _wakeLockSentinel = null;
+  }
+}
+
+// Called from the toggle's onchange handler (global scope, regular <script>)
+async function _prepToggleWakeLock(enabled) {
+  _wakeLockEnabled = enabled;
+  try { localStorage.setItem(_WAKE_LOCK_KEY, enabled ? '1' : '0'); } catch (_) {}
+  // Sync the visual state of the label (handles the case where _updateWakeLockUI
+  // is called before a re-render, e.g. fast toggles)
+  const lbl = document.getElementById('prep-wake-lock-label');
+  if (lbl) lbl.classList.toggle('wake-lock-on', enabled);
+  if (enabled) {
+    await _prepRequestWakeLock();
+  } else {
+    await _prepReleaseWakeLock();
+  }
+}
+// ─────────────────────────────────────────────────────────────
+
 let prepConfig   = null;
 let _prepVersion = null; // dataVersion at last load, for in-memory invalidation
 
 async function renderPrep(container) {
+  // Wake lock toggle — hidden on browsers that don't support the API
+  const wakeLockToggle = _wakeLockSupported ? `
+    <label id="prep-wake-lock-label"
+           class="wake-lock-toggle${_wakeLockEnabled ? ' wake-lock-on' : ''}"
+           title="${t('prep.keep_screen_on')}">
+      <input id="prep-wake-lock-cb" type="checkbox"
+             ${_wakeLockEnabled ? 'checked' : ''}
+             onchange="_prepToggleWakeLock(this.checked)">
+      <span class="wake-lock-track"><span class="wake-lock-thumb"></span></span>
+      <span class="wake-lock-text">${t('prep.keep_screen_on')}</span>
+    </label>` : '';
+
   container.innerHTML = `
     <div class="page">
       <div class="page-head">
@@ -13,11 +77,15 @@ async function renderPrep(container) {
           <h1 class="page-title">${t('prep.title')}</h1>
           <div class="page-sub">${t('prep.sub')}</div>
         </div>
+        ${wakeLockToggle}
       </div>
       <div id="prep-loading" class="loading-state">${t('common.loading')}</div>
       <div id="prep-content" style="display:none"></div>
     </div>
   `;
+
+  // Acquire immediately when landing on the prep screen (if preference is on)
+  if (_wakeLockEnabled) _prepRequestWakeLock();
 
   const dashVersion = getDashboardData()?.dataVersion || null;
 

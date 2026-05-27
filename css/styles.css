@@ -639,6 +639,60 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
 }
 .step-text { font-size: 14px; line-height: 1.55; padding-top: 3px; }
 
+/* ── Wake Lock toggle (prep screen) ─────────────────────────── */
+.wake-lock-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  cursor: pointer; user-select: none;
+  padding: 6px 10px 6px 8px;
+  border-radius: 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px; font-weight: 500;
+  color: var(--text-2);
+  flex-shrink: 0; align-self: flex-end;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Visually hide the native checkbox; keep it accessible */
+.wake-lock-toggle input[type="checkbox"] {
+  position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+}
+/* Track (the pill) */
+.wake-lock-track {
+  position: relative;
+  width: 36px; height: 20px;
+  background: var(--border);
+  border-radius: 10px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+/* Sliding thumb */
+.wake-lock-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.28);
+  transition: left 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* ON state */
+.wake-lock-toggle.wake-lock-on {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-deep);
+}
+.wake-lock-toggle.wake-lock-on .wake-lock-track  { background: var(--accent); }
+.wake-lock-toggle.wake-lock-on .wake-lock-thumb  { left: 18px; } /* 36 - 16 - 2 = 18 */
+
+/* Dark mode: off-state thumb is readable on dark track */
+[data-theme="dark"] .wake-lock-track { background: var(--border); }
+[data-theme="dark"] .wake-lock-toggle.wake-lock-on .wake-lock-track { background: var(--accent); }
+
+/* Text size scaling */
+.text-lg  .wake-lock-text { font-size: 13px; }
+.text-xl  .wake-lock-text { font-size: 14px; }
+
 /* ── Drum scroller ───────────────────────────────────────────── */
 .drum-wrap {
   display: flex; align-items: center; justify-content: center;

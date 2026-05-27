@@ -68,12 +68,12 @@ function updatePatientChip() {
 async function renderSettings(container) {
   // Render immediately from in-memory cache — no loading state
   _renderSettingsPage(container, _patientsCache?.patients || []);
-  // Background refresh — quietly re-renders if anything changed
+  // Background refresh — quietly re-renders if still on this screen
   try {
     const result = await API.getPatients();
     _patientsCache = { version: result.version, patients: result.patients };
     AppCache.setPatients(result.patients, result.version);
-    _renderSettingsPage(container, result.patients);
+    if (activeScreen === 'users') _renderSettingsPage(container, result.patients);
   } catch {}
 }
 
@@ -168,14 +168,14 @@ async function renderUsers(container) {
   } else {
     container.innerHTML = `<div class="page"><div class="loading-state">${t('common.loading')}</div></div>`;
   }
-  // Background refresh — always fetch fresh list
+  // Background refresh — always fetch fresh list, but only update if still on this screen
   try {
     const result = await API.getPatients();
     _patientsCache = { version: result.version, patients: result.patients };
     AppCache.setPatients(result.patients, result.version);
-    _renderUsersList(container, result.patients);
+    if (activeScreen === 'users') _renderUsersList(container, result.patients);
   } catch (err) {
-    if (!_patientsCache?.patients) {
+    if (!_patientsCache?.patients && activeScreen === 'users') {
       container.innerHTML = `<div class="page"><div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div></div>`;
     }
   }

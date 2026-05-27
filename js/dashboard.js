@@ -6,31 +6,9 @@ let dashboardData = null;
 // inventory.js and measurements.js read this via getDashboardData() rather than the raw global
 function getDashboardData() { return dashboardData; }
 
-function _dashCacheKey(patientId) { return 'dashboard_' + patientId; }
-
-function _dashReadCache(patientId) {
-  try {
-    const raw = localStorage.getItem(_dashCacheKey(patientId));
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function _dashWriteCache(patientId, version, data) {
-  try {
-    localStorage.setItem(_dashCacheKey(patientId), JSON.stringify({ version, data, savedAt: Date.now() }));
-  } catch {}
-}
-
 // Call after a successful local write to force re-fetch on next visit
 function invalidateDashboardCache(patientId) {
-  try {
-    const key = _dashCacheKey(patientId || getActivePatientId());
-    const raw = localStorage.getItem(key);
-    if (!raw) return;
-    const cached = JSON.parse(raw);
-    cached.version = null;
-    localStorage.setItem(key, JSON.stringify(cached));
-  } catch {}
+  AppCache.invalidateDashboard(patientId || getActivePatientId());
 }
 
 async function renderDashboard(container) {
@@ -60,7 +38,7 @@ async function renderDashboard(container) {
     </div>
   `;
 
-  const cached = _dashReadCache(patientId);
+  const cached = AppCache.getDashboard(patientId);
   if (cached?.data) {
     dashboardData = cached.data;
     renderDashboardContent(cached.data);
@@ -89,7 +67,7 @@ async function _dashFetch(patientId, silent = false) {
     const fresh = await API.getDashboard(patientId);
     dashboardData = fresh;
     const version = fresh.dataVersion || null;
-    _dashWriteCache(patientId, version, fresh);
+    AppCache.setDashboard(patientId, fresh, version);
     renderDashboardContent(fresh);
     _dashSetUpdated(Date.now());
     const loading = document.getElementById('dash-loading');

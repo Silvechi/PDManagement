@@ -13,21 +13,6 @@ let _histTo     = null; // YYYY-MM-DD
 let _histRows   = null;
 let _histConfig = null; // inventoryConfig cache for bag color lookup
 
-function _histCacheKey(patientId, from, to) { return 'history_' + patientId + '_' + from + '_' + to; }
-
-function _histReadCache(patientId, from, to) {
-  try {
-    const raw = localStorage.getItem(_histCacheKey(patientId, from, to));
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function _histWriteCache(patientId, from, to, version, rows) {
-  try {
-    localStorage.setItem(_histCacheKey(patientId, from, to), JSON.stringify({ version, rows, savedAt: Date.now() }));
-  } catch {}
-}
-
 function _todayStr() {
   return new Date().toLocaleDateString('en-CA');
 }
@@ -121,9 +106,9 @@ async function _fetchAndRenderHist() {
   const content   = document.getElementById('hist-content');
   const patientId = getActivePatientId();
 
-  const cached = _histReadCache(patientId, _histFrom, _histTo);
+  const cached = AppCache.getHistory(patientId, _histFrom, _histTo);
   if (cached) {
-    _histRows = cached.rows;
+    _histRows = cached.data;
     if (loading) loading.style.display = 'none';
     _renderHistContent();
     _histBackgroundRefresh(patientId, cached.version);
@@ -140,7 +125,7 @@ async function _fetchAndRenderHist() {
     ]);
     if (dashResult?.inventoryConfig) _histConfig = dashResult.inventoryConfig;
     _histRows = result.rows || [];
-    _histWriteCache(patientId, _histFrom, _histTo, result.version || null, _histRows);
+    AppCache.setHistory(patientId, _histFrom, _histTo, _histRows, result.version || null);
     _renderHistContent();
   } catch (err) {
     if (loading) loading.innerHTML = `<div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div>`;
@@ -167,7 +152,7 @@ async function _histBackgroundRefresh(patientId, cachedVersion) {
       ]);
       if (dashResult?.inventoryConfig) _histConfig = dashResult.inventoryConfig;
       _histRows = result.rows || [];
-      _histWriteCache(patientId, _histFrom, _histTo, result.version || null, _histRows);
+      AppCache.setHistory(patientId, _histFrom, _histTo, _histRows, result.version || null);
       _renderHistContent();
       _histSetSyncing(false);
     }

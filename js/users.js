@@ -3,26 +3,25 @@
 // ============================================================
 
 const PATIENT_STORAGE_KEY = 'pd_active_patient_id';
-const PATIENTS_CACHE_KEY  = 'pd_patients_v1';
 
 let _activePatientId   = localStorage.getItem(PATIENT_STORAGE_KEY) || null;
 let _activePatientName = null;
-let _patientsCache     = null; // { version, patients }
+let _patientsCache     = null; // { version, patients }  ← in-memory convenience shape
 
 function getActivePatientId()   { return _activePatientId; }
 function getActivePatientName() { return _activePatientName; }
 
-// Called once on app init — loads patients and resolves active patient.
+// Called once on app init — warms from AppCache then fetches fresh.
 async function loadPatientsCache() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(PATIENTS_CACHE_KEY));
-    if (cached?.version && cached?.patients) _patientsCache = cached;
-  } catch {}
+  const cached = AppCache.getPatients();
+  if (cached?.data) {
+    _patientsCache = { version: cached.version, patients: cached.data };
+  }
 
   try {
     const result = await API.getPatients();
     _patientsCache = { version: result.version, patients: result.patients };
-    try { localStorage.setItem(PATIENTS_CACHE_KEY, JSON.stringify(_patientsCache)); } catch {}
+    AppCache.setPatients(result.patients, result.version);
   } catch {}
 
   _resolveActivePatient();
@@ -67,13 +66,15 @@ function updatePatientChip() {
 // ============================================================
 
 async function renderSettings(container) {
-  container.innerHTML = `<div class="page"><div class="loading-state">${t('common.loading')}</div></div>`;
+  // Render immediately from in-memory cache — no loading state
+  _renderSettingsPage(container, _patientsCache?.patients || []);
+  // Background refresh — quietly re-renders if anything changed
   try {
     const result = await API.getPatients();
     _patientsCache = { version: result.version, patients: result.patients };
-    try { localStorage.setItem(PATIENTS_CACHE_KEY, JSON.stringify(_patientsCache)); } catch {}
+    AppCache.setPatients(result.patients, result.version);
+    _renderSettingsPage(container, result.patients);
   } catch {}
-  _renderSettingsPage(container, _patientsCache?.patients || []);
 }
 
 function _renderSettingsPage(container, patients) {
@@ -161,14 +162,22 @@ function _settingsSetTextSize(size) {
 // ============================================================
 
 async function renderUsers(container) {
-  container.innerHTML = `<div class="page"><div class="loading-state">${t('common.loading')}</div></div>`;
+  // Render immediately from in-memory cache if available
+  if (_patientsCache?.patients) {
+    _renderUsersList(container, _patientsCache.patients);
+  } else {
+    container.innerHTML = `<div class="page"><div class="loading-state">${t('common.loading')}</div></div>`;
+  }
+  // Background refresh — always fetch fresh list
   try {
     const result = await API.getPatients();
     _patientsCache = { version: result.version, patients: result.patients };
-    try { localStorage.setItem(PATIENTS_CACHE_KEY, JSON.stringify(_patientsCache)); } catch {}
+    AppCache.setPatients(result.patients, result.version);
     _renderUsersList(container, result.patients);
   } catch (err) {
-    container.innerHTML = `<div class="page"><div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div></div>`;
+    if (!_patientsCache?.patients) {
+      container.innerHTML = `<div class="page"><div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div></div>`;
+    }
   }
 }
 
@@ -307,7 +316,7 @@ async function _usersSubmitForm(patientId) {
 
     const fresh = await API.getPatients();
     _patientsCache = { version: fresh.version, patients: fresh.patients };
-    try { localStorage.setItem(PATIENTS_CACHE_KEY, JSON.stringify(_patientsCache)); } catch {}
+    AppCache.setPatients(fresh.patients, fresh.version);
 
     // If first patient was just added, go straight to dashboard
     if (!patientId && fresh.patients.length === 1) {

@@ -118,9 +118,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   checkConnectivity();
-  API.getConfig().then(cfg => {
-    try { localStorage.setItem('pd_config_v1', JSON.stringify(cfg)); } catch {}
-  }).catch(() => {});
 });
 
 // ============================================================

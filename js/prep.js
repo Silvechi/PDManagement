@@ -4,7 +4,6 @@
 
 let prepConfig   = null;
 let _prepVersion = null; // dataVersion at last load, for in-memory invalidation
-const _PREP_CACHE_KEY = 'pd_config_v1';
 
 async function renderPrep(container) {
   container.innerHTML = `
@@ -32,20 +31,16 @@ async function renderPrep(container) {
   }
 
   // localStorage hit — use only if version matches
-  let cached = null;
-  try { cached = localStorage.getItem(_PREP_CACHE_KEY); } catch {}
-  if (cached) {
-    try {
-      const entry = JSON.parse(cached);
-      const cacheValid = entry.data && (!dashVersion || entry.version === dashVersion);
-      if (cacheValid) {
-        prepConfig      = entry.data;
-        _prepVersion    = entry.version;
-        renderPrepContent(prepConfig);
-        if (!dashVersion) _refreshPrepInBackground(); // no version tracking — keep refreshing
-        return;
-      }
-    } catch {}
+  const cached = AppCache.getConfig();
+  if (cached?.data) {
+    const cacheValid = !dashVersion || cached.version === dashVersion;
+    if (cacheValid) {
+      prepConfig   = cached.data;
+      _prepVersion = cached.version;
+      renderPrepContent(prepConfig);
+      if (!dashVersion) _refreshPrepInBackground(); // no version tracking — keep refreshing
+      return;
+    }
   }
 
   // No cache or stale — blocking fetch
@@ -53,7 +48,7 @@ async function renderPrep(container) {
     const fresh = await API.getConfig();
     prepConfig   = fresh;
     _prepVersion = getDashboardData()?.dataVersion || null;
-    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version: _prepVersion, data: fresh })); } catch {}
+    AppCache.setConfig(fresh, _prepVersion);
     renderPrepContent(prepConfig);
   } catch (err) {
     document.getElementById('prep-loading').innerHTML =
@@ -65,7 +60,7 @@ function _refreshPrepInBackground() {
   API.getConfig().then(fresh => {
     prepConfig   = fresh;
     _prepVersion = null;
-    try { localStorage.setItem(_PREP_CACHE_KEY, JSON.stringify({ version: null, data: fresh })); } catch {}
+    AppCache.setConfig(fresh, null);
   }).catch(() => {});
 }
 

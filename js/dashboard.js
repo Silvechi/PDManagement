@@ -2,9 +2,56 @@
 // dashboard.js — Dashboard screen
 // ============================================================
 
-let dashboardData = null;
+let dashboardData      = null;
+let _dashExchangeTimer = null;
+
 // inventory.js and measurements.js read this via getDashboardData() rather than the raw global
 function getDashboardData() { return dashboardData; }
+
+// ── Exchange time helpers ─────────────────────────────────────
+
+// Normalises a GAS time value ("1899-12-30THH:MM:SS.000Z" or "HH:MM") to "HH:MM".
+function _parseExchangeTime(timeStr) {
+  if (!timeStr) return '00:00';
+  const s = String(timeStr);
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d)) {
+      return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
+    }
+  }
+  return s.slice(0, 5) || '00:00';
+}
+
+// Returns a precise elapsed string: "4h 15m", "25m", "2d 3h", etc.
+function _fmtElapsed(dateStr, timeStr) {
+  if (!dateStr) return '';
+  const dt = new Date(dateStr + 'T' + _parseExchangeTime(timeStr) + ':00');
+  const totalMin = Math.floor((Date.now() - dt.getTime()) / 60000);
+  if (isNaN(totalMin) || totalMin < 0) return '';
+  const days = Math.floor(totalMin / 1440);
+  const hrs  = Math.floor((totalMin % 1440) / 60);
+  const min  = totalMin % 60;
+  if (days > 0) return hrs > 0 ? `${days}d ${hrs}h` : `${days}d`;
+  if (hrs  > 0) return min > 0 ? `${hrs}h ${min}m` : `${hrs}h`;
+  return `${min}m`;
+}
+
+// Starts a 1-minute interval to keep #dash-exchange-elapsed current.
+// Self-cancels when the user navigates away from the dashboard.
+function _startExchangeTimer(lastExchange) {
+  if (_dashExchangeTimer) { clearInterval(_dashExchangeTimer); _dashExchangeTimer = null; }
+  if (!lastExchange) return;
+  _dashExchangeTimer = setInterval(() => {
+    if (activeScreen !== 'dashboard') {
+      clearInterval(_dashExchangeTimer);
+      _dashExchangeTimer = null;
+      return;
+    }
+    const el = document.getElementById('dash-exchange-elapsed');
+    if (el) el.textContent = _fmtElapsed(lastExchange.date, lastExchange.time);
+  }, 60000);
+}
 
 // Call after a successful local write to force re-fetch on next visit
 function invalidateDashboardCache(patientId) {
@@ -184,12 +231,10 @@ function renderDashboardContent(data) {
     const maxH = bagItems.reduce((m, item) =>
       (item.maxHours > 0) ? (m === null ? item.maxHours : Math.min(m, item.maxHours)) : m, null);
     if (maxH !== null) {
-      const dt = new Date(data.lastExchange.date + 'T' + (data.lastExchange.time || '00:00') + ':00');
+      const dt = new Date(data.lastExchange.date + 'T' + _parseExchangeTime(data.lastExchange.time) + ':00');
       const hoursAgo = (Date.now() - dt.getTime()) / 3600000;
       if (!isNaN(hoursAgo) && hoursAgo > maxH) {
-        const hrs = Math.floor(hoursAgo);
-        const min = Math.round((hoursAgo - hrs) * 60);
-        const elapsed = hrs > 0 ? (min > 0 ? `${hrs}h ${min}m` : `${hrs}h`) : `${min}m`;
+        const elapsed = _fmtElapsed(data.lastExchange.date, data.lastExchange.time);
         overdueBanner = `
           <div class="card card-overdue">
             <div class="card-overdue-inner">
@@ -252,11 +297,20 @@ function renderDashboardContent(data) {
       <div class="card-head">
         <div>
           <h2 class="card-title">${t('dash.solution_bags')}</h2>
-          ${data.lastExchange ? `<p class="card-sub">${t('dash.last_exchange', { ago: timeAgo(data.lastExchange.date, data.lastExchange.time) })}</p>` : ''}
+          ${data.lastExchange ? `<p class="card-sub">${t('dash.last_exchange', { time: _parseExchangeTime(data.lastExchange.time) })}</p>` : ''}
         </div>
         <button class="link" onclick="navigateTo('inventory')">${t('common.manage')}</button>
       </div>
       <div class="bag-hero-grid">${bagHeroHtml}</div>
+      ${data.lastExchange ? `
+      <div class="exchange-timer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <div>
+          <div class="exchange-timer-val" id="dash-exchange-elapsed">${_fmtElapsed(data.lastExchange.date, data.lastExchange.time)}</div>
+          <div class="exchange-timer-label">${t('dash.since_exchange')}</div>
+        </div>
+      </div>
+      ` : ''}
     </section>
     ` : ''}
 
@@ -280,6 +334,8 @@ function renderDashboardContent(data) {
       </section>
     </div>
   `;
+
+  _startExchangeTimer(data.lastExchange || null);
 }
 
 // ── Sparkline SVG ─────────────────────────────────────────────

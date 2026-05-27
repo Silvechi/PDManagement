@@ -883,6 +883,30 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   color: var(--danger); font-weight: 600; font-size: 14px;
 }
 
+/* ── Exchange timer row ─────────────────────────────────────── */
+.exchange-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.exchange-timer-val {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+@container pd (max-width: 600px) { .exchange-timer-val { font-size: 22px; } }
+.exchange-timer-label {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 3px;
+}
+.exchange-timer svg { flex-shrink: 0; color: var(--text-3); }
+
 /* ── Auth screens ─────────────────────────────────────────── */
 .auth-screen {
   min-height: 100dvh;

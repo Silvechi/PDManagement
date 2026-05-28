@@ -736,15 +736,14 @@ function sendHistoryEmail(data) {
   // 4. Patient name
   var patientName = _getPatientName(data.patientId) || data.patientId;
 
-  // 5. Build HTML body + PDF attachment
+  // 5. Build HTML body + CSV attachment
   var htmlBody = _buildEmailHtml(patientName, data.from, data.to, weightSvg, bpSvg, exchanges);
-  var pdfBlob  = _buildEmailPdf(patientName, data.from, data.to, exchanges, weights, bpRows);
-  pdfBlob = pdfBlob.setName('PD_Report_' + data.from + '_to_' + data.to + '.pdf');
+  var csvBlob  = _buildEmailCsv(patientName, data.from, data.to, exchanges, weights, bpRows);
 
   // 6. Send to each validated recipient
   var subject = 'PD Tracker: History Report ' + data.from + ' → ' + data.to;
   targets.forEach(function(email) {
-    MailApp.sendEmail({ to: email, name: 'PD Tracker', subject: subject, htmlBody: htmlBody, attachments: [pdfBlob] });
+    MailApp.sendEmail({ to: email, name: 'PD Tracker', subject: subject, htmlBody: htmlBody, attachments: [csvBlob] });
   });
   return { success: true, sent: targets.length };
 }
@@ -893,91 +892,70 @@ function _buildEmailHtml(patientName, from, to, weightSvg, bpSvg, exchanges) {
     '</body></html>';
 }
 
-function _buildEmailPdf(patientName, from, to, exchanges, weights, bpRows) {
+// Builds a CSV attachment — no extra GAS service permissions required.
+// Contains: report header, stats summary, then the full exchange log.
+function _buildEmailCsv(patientName, from, to, exchanges, weights, bpRows) {
   var tz        = Session.getScriptTimeZone();
   var generated = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
   var typeMap   = { drain_fill: 'Drain & Fill', drain: 'Drain', fill: 'Fill' };
 
-  var doc  = null;
-  var blob = null;
-  try {
-    doc  = DocumentApp.create('__pd_export_' + Utilities.getUuid() + '__');
-    var body = doc.getBody();
-    body.setMarginTop(36).setMarginBottom(36).setMarginLeft(54).setMarginRight(54);
-
-    // Title
-    body.appendParagraph('PD History Report — ' + patientName)
-        .setHeading(DocumentApp.ParagraphHeading.HEADING1);
-    body.appendParagraph('Period: ' + from + ' → ' + to).setFontSize(10).setForegroundColor('#444444');
-    body.appendParagraph('Generated: ' + generated).setFontSize(9).setForegroundColor('#888888');
-    body.appendHorizontalRule();
-
-    // Stats summary
-    body.appendParagraph('Summary').setHeading(DocumentApp.ParagraphHeading.HEADING2);
-
-    var wVals = weights.map(function(r) { return parseFloat(r.weight); }).filter(function(v) { return !isNaN(v) && v > 0; });
-    if (wVals.length) {
-      var wAvg = (wVals.reduce(function(a,b){return a+b;},0)/wVals.length).toFixed(1);
-      body.appendParagraph('Weight: avg ' + wAvg + ' kg  ·  min ' + Math.min.apply(null,wVals).toFixed(1) + ' kg  ·  max ' + Math.max.apply(null,wVals).toFixed(1) + ' kg  (' + wVals.length + ' readings)').setFontSize(10);
-    } else {
-      body.appendParagraph('Weight: no readings in this period').setFontSize(10).setForegroundColor('#888888');
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    // Quote cells that contain a comma, quote, or newline
+    if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+      return '"' + s.replace(/"/g, '""') + '"';
     }
-
-    var sVals = bpRows.map(function(r) { return parseInt(r.bpSystolic);  }).filter(function(v) { return !isNaN(v) && v > 0; });
-    var dVals = bpRows.map(function(r) { return parseInt(r.bpDiastolic); }).filter(function(v) { return !isNaN(v) && v > 0; });
-    if (sVals.length) {
-      var sAvg = Math.round(sVals.reduce(function(a,b){return a+b;},0)/sVals.length);
-      var dAvg = Math.round(dVals.reduce(function(a,b){return a+b;},0)/dVals.length);
-      body.appendParagraph('Blood Pressure: avg ' + sAvg + '/' + dAvg + ' mmHg  ·  range ' +
-        Math.min.apply(null,sVals) + '–' + Math.max.apply(null,sVals) + '/' +
-        Math.min.apply(null,dVals) + '–' + Math.max.apply(null,dVals) + ' mmHg  (' + sVals.length + ' readings)').setFontSize(10);
-    } else {
-      body.appendParagraph('Blood Pressure: no readings in this period').setFontSize(10).setForegroundColor('#888888');
-    }
-
-    body.appendParagraph('See the HTML email for weight and BP charts.').setFontSize(9).setForegroundColor('#aaaaaa').setItalic(true);
-    body.appendHorizontalRule();
-
-    // Exchange table
-    body.appendParagraph('Exchanges (' + exchanges.length + ' records)').setHeading(DocumentApp.ParagraphHeading.HEADING2);
-
-    var headers = [['Date', 'Time', 'Type', 'Bag', 'Drained (kg)', 'Fill Vol (L)', 'Notes']];
-    var dataRows = exchanges.map(function(r) {
-      return [
-        r.date,
-        r.time,
-        typeMap[r.measurementType] || r.measurementType || '',
-        r.bagType   || '',
-        r.bagWeight  !== '' && r.bagWeight  != null ? String(parseFloat(r.bagWeight).toFixed(1))  : '',
-        r.fillVolume !== '' && r.fillVolume != null ? String(parseFloat(r.fillVolume).toFixed(2)) : '',
-        r.notes || ''
-      ];
-    });
-
-    if (dataRows.length) {
-      var table = body.appendTable(headers.concat(dataRows));
-      // Bold header row
-      var hRow = table.getRow(0);
-      for (var c = 0; c < hRow.getNumCells(); c++) {
-        hRow.getCell(c).getChild(0).asParagraph().editAsText().setBold(true);
-      }
-      table.setFontSize(9);
-    } else {
-      body.appendParagraph('No exchange records for this period.').setFontSize(10).setForegroundColor('#888888').setItalic(true);
-    }
-
-    // Footer
-    body.appendHorizontalRule();
-    body.appendParagraph('Sent by PD Tracker · ' + generated).setFontSize(8).setForegroundColor('#bbbbbb');
-
-    doc.saveAndClose();
-    blob = doc.getAs(MimeType.PDF);
-  } finally {
-    if (doc) {
-      try { DriveApp.getFileById(doc.getId()).setTrashed(true); } catch(_) {}
-    }
+    return s;
   }
-  return blob;
+  function csvRow(arr) { return arr.map(csvCell).join(','); }
+
+  var lines = [];
+
+  // Report header
+  lines.push(csvRow(['PD History Report']));
+  lines.push(csvRow(['Patient', patientName]));
+  lines.push(csvRow(['Period',  from + ' to ' + to]));
+  lines.push(csvRow(['Generated', generated]));
+  lines.push('');
+
+  // Stats summary
+  lines.push(csvRow(['--- Summary ---']));
+  var wVals = weights.map(function(r) { return parseFloat(r.weight); }).filter(function(v) { return !isNaN(v) && v > 0; });
+  if (wVals.length) {
+    var wAvg = (wVals.reduce(function(a,b){return a+b;},0) / wVals.length).toFixed(1);
+    lines.push(csvRow(['Weight (kg)', 'avg', wAvg, 'min', Math.min.apply(null,wVals).toFixed(1), 'max', Math.max.apply(null,wVals).toFixed(1), 'readings', wVals.length]));
+  } else {
+    lines.push(csvRow(['Weight (kg)', 'no readings in this period']));
+  }
+  var sVals = bpRows.map(function(r) { return parseInt(r.bpSystolic);  }).filter(function(v) { return !isNaN(v) && v > 0; });
+  var dVals = bpRows.map(function(r) { return parseInt(r.bpDiastolic); }).filter(function(v) { return !isNaN(v) && v > 0; });
+  if (sVals.length) {
+    var sAvg = Math.round(sVals.reduce(function(a,b){return a+b;},0) / sVals.length);
+    var dAvg = Math.round(dVals.reduce(function(a,b){return a+b;},0) / dVals.length);
+    lines.push(csvRow(['BP Systolic (mmHg)',  'avg', sAvg, 'min', Math.min.apply(null,sVals), 'max', Math.max.apply(null,sVals), 'readings', sVals.length]));
+    lines.push(csvRow(['BP Diastolic (mmHg)', 'avg', dAvg, 'min', Math.min.apply(null,dVals), 'max', Math.max.apply(null,dVals)]));
+  } else {
+    lines.push(csvRow(['Blood Pressure', 'no readings in this period']));
+  }
+  lines.push('');
+
+  // Exchange log
+  lines.push(csvRow(['--- Exchanges (' + exchanges.length + ' records) ---']));
+  lines.push(csvRow(['Date', 'Time', 'Type', 'Bag', 'Drained (kg)', 'Fill Vol (L)', 'Notes']));
+  exchanges.forEach(function(r) {
+    lines.push(csvRow([
+      r.date,
+      r.time,
+      typeMap[r.measurementType] || r.measurementType || '',
+      r.bagType   || '',
+      r.bagWeight  !== '' && r.bagWeight  != null ? parseFloat(r.bagWeight).toFixed(1)  : '',
+      r.fillVolume !== '' && r.fillVolume != null ? parseFloat(r.fillVolume).toFixed(2) : '',
+      r.notes || ''
+    ]));
+  });
+
+  var csv = '﻿' + lines.join('\r\n'); // BOM for Excel UTF-8 compatibility
+  return Utilities.newBlob(csv, 'text/csv', 'PD_Report_' + from + '_to_' + to + '.csv');
 }
 
 // Minimal HTML-entity escaper for email body construction (server-side, no DOM available)

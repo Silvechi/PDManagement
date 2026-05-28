@@ -382,7 +382,8 @@ async function _histSendEmail(container) {
       patientId:  getActivePatientId(),
       from:       _histFrom,
       to:         _histTo,
-      recipients: selected
+      recipients: selected,
+      lang:       currentLang
     });
     if (feedback) feedback.innerHTML = `<div class="feedback feedback-success">${t('hist.email_sent', { n: result.sent })}</div>`;
     setTimeout(() => _histEmailBack(container), 1500);
@@ -415,7 +416,8 @@ async function _histDownloadReport() {
     const result = await API.getHistoryReportHtml({
       patientId: getActivePatientId(),
       from:      _histFrom,
-      to:        _histTo
+      to:        _histTo,
+      lang:      currentLang
     });
     win.document.open();
     win.document.write(result.html);

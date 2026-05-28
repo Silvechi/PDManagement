@@ -722,27 +722,35 @@ function sendHistoryEmail(data) {
     .filter(function(e) { return typeof e === 'string' && allowedMap.hasOwnProperty(e); });
   if (!targets.length) return { error: 'No valid recipients selected' };
 
-  // 2. Fetch all rows for date range (all measurement types — weight, bp, exchanges)
+  // 2. Fetch all rows for date range (all measurement types)
+  var lang      = (data.lang === 'he') ? 'he' : 'en';
   var rows      = (getHistory(data.patientId, data.from, data.to).rows) || [];
   var EXCH      = { drain: true, fill: true, drain_fill: true };
   var exchanges = rows.filter(function(r) { return EXCH[r.measurementType]; });
-  var weights   = rows.filter(function(r) { return r.measurementType === 'weight' && r.weight !== '' && r.weight !== null; });
-  var bpRows    = rows.filter(function(r) { return r.measurementType === 'bp'     && r.bpSystolic !== '' && r.bpSystolic !== null; });
+  // Weight and BP may appear on any measurement type row — filter by value, not by type
+  var weights   = rows.filter(function(r) { return parseFloat(r.weight) > 0; });
+  var bpRows    = rows.filter(function(r) { return parseInt(r.bpSystolic) > 0 && parseInt(r.bpDiastolic) > 0; });
 
   // 3. Charts (SVG strings, embedded in HTML body)
+  var noDataText = lang === 'he' ? 'אין נתונים' : 'No data for this period';
+  var labelWt    = lang === 'he' ? 'משקל (ק"ג)' : 'Weight (kg)';
+  var labelSys   = lang === 'he' ? 'סיסטולי'    : 'Systolic';
+  var labelDia   = lang === 'he' ? 'דיאסטולי'   : 'Diastolic';
+
   var weightSvg = _buildChartSvg(
     [{ points: weights.map(function(r) { return { date: r.date, val: parseFloat(r.weight) }; }),
-       color: '#2a5fd6', label: 'Weight (kg)' }], {});
+       color: '#2a5fd6', label: labelWt }], { noDataText: noDataText });
 
   var bpSvg = _buildChartSvg(
-    [{ points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpSystolic)  }; }), color: '#2a5fd6', label: 'Systolic' },
-     { points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpDiastolic) }; }), color: '#e74c3c', label: 'Diastolic' }], {});
+    [{ points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpSystolic)  }; }), color: '#2a5fd6', label: labelSys },
+     { points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpDiastolic) }; }), color: '#e74c3c', label: labelDia }],
+    { noDataText: noDataText });
 
   // 4. Patient name
   var patientName = _getPatientName(data.patientId) || data.patientId;
 
   // 5. Build HTML body + CSV attachment
-  var htmlBody = _buildEmailHtml(patientName, data.from, data.to, weightSvg, bpSvg, exchanges);
+  var htmlBody = _buildEmailHtml(patientName, data.from, data.to, weightSvg, bpSvg, exchanges, lang);
   var csvBlob  = _buildEmailCsv(patientName, data.from, data.to, exchanges, weights, bpRows);
 
   // 6. Send to each validated recipient
@@ -759,22 +767,29 @@ function getHistoryReportHtml(data) {
   if (!data.patientId) return { error: 'patientId required' };
   if (!data.from || !data.to) return { error: 'Date range required' };
 
+  var lang      = (data.lang === 'he') ? 'he' : 'en';
   var rows      = (getHistory(data.patientId, data.from, data.to).rows) || [];
   var EXCH      = { drain: true, fill: true, drain_fill: true };
   var exchanges = rows.filter(function(r) { return EXCH[r.measurementType]; });
-  var weights   = rows.filter(function(r) { return r.measurementType === 'weight' && r.weight !== '' && r.weight !== null; });
-  var bpRows    = rows.filter(function(r) { return r.measurementType === 'bp'     && r.bpSystolic !== '' && r.bpSystolic !== null; });
+  var weights   = rows.filter(function(r) { return parseFloat(r.weight) > 0; });
+  var bpRows    = rows.filter(function(r) { return parseInt(r.bpSystolic) > 0 && parseInt(r.bpDiastolic) > 0; });
+
+  var noDataText = lang === 'he' ? 'אין נתונים' : 'No data for this period';
+  var labelWt    = lang === 'he' ? 'משקל (ק"ג)' : 'Weight (kg)';
+  var labelSys   = lang === 'he' ? 'סיסטולי'    : 'Systolic';
+  var labelDia   = lang === 'he' ? 'דיאסטולי'   : 'Diastolic';
 
   var weightSvg = _buildChartSvg(
     [{ points: weights.map(function(r) { return { date: r.date, val: parseFloat(r.weight) }; }),
-       color: '#2a5fd6', label: 'Weight (kg)' }], {});
+       color: '#2a5fd6', label: labelWt }], { noDataText: noDataText });
 
   var bpSvg = _buildChartSvg(
-    [{ points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpSystolic)  }; }), color: '#2a5fd6', label: 'Systolic' },
-     { points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpDiastolic) }; }), color: '#e74c3c', label: 'Diastolic' }], {});
+    [{ points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpSystolic)  }; }), color: '#2a5fd6', label: labelSys },
+     { points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpDiastolic) }; }), color: '#e74c3c', label: labelDia }],
+    { noDataText: noDataText });
 
   var patientName = _getPatientName(data.patientId) || data.patientId;
-  var html = _buildEmailHtml(patientName, data.from, data.to, weightSvg, bpSvg, exchanges);
+  var html = _buildEmailHtml(patientName, data.from, data.to, weightSvg, bpSvg, exchanges, lang);
   return { html: html };
 }
 
@@ -784,6 +799,21 @@ function _buildChartSvg(series, opts) {
   var PL = 52, PR = 16, PT = 20, PB = 60;
   var cW = W - PL - PR;  // 492
   var cH = H - PT - PB;  // 120
+
+  // Deduplicate to one point per day per series (average), so lines never fold back on themselves
+  series = series.map(function(s) {
+    var byDate = {};
+    (s.points || []).forEach(function(p) {
+      if (isNaN(p.val)) return;
+      if (!byDate[p.date]) byDate[p.date] = { sum: 0, n: 0 };
+      byDate[p.date].sum += p.val;
+      byDate[p.date].n++;
+    });
+    var avgPts = Object.keys(byDate).sort().map(function(d) {
+      return { date: d, val: byDate[d].sum / byDate[d].n };
+    });
+    return { points: avgPts, color: s.color, label: s.label };
+  });
 
   // Union of all dates; all values
   var dateSet = {}, allVals = [];
@@ -797,8 +827,9 @@ function _buildChartSvg(series, opts) {
 
   // Empty state
   if (!n || !allVals.length) {
+    var noDataText = (opts && opts.noDataText) ? opts.noDataText : 'No data for this period';
     return '<svg width="' + W + '" height="60" viewBox="0 0 ' + W + ' 60" xmlns="http://www.w3.org/2000/svg" style="display:block">' +
-      '<text x="' + (W/2) + '" y="36" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#aaa">No data for this period</text>' +
+      '<text x="' + (W/2) + '" y="36" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#aaa">' + noDataText + '</text>' +
       '</svg>';
   }
 
@@ -863,62 +894,134 @@ function _buildChartSvg(series, opts) {
   return out.join('\n');
 }
 
-function _buildEmailHtml(patientName, from, to, weightSvg, bpSvg, exchanges) {
-  var tz        = Session.getScriptTimeZone();
-  var generated = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
-  var typeMap   = { drain_fill: 'Drain &amp; Fill', drain: 'Drain', fill: 'Fill' };
+// Report i18n strings — used by _buildEmailHtml
+function _reportI18n(lang) {
+  if (lang === 'he') return {
+    title:        'דוח היסטוריה — PD',
+    patient:      'מטופל',
+    generated:    'הופק',
+    weightTitle:  'מגמת משקל (ק"ג)',
+    bpTitle:      'לחץ דם (מ"מ כספית)',
+    exchTitle:    'יומן שחלופים',
+    records:      'רשומות',
+    colDate:      'תאריך',
+    colTime:      'שעה',
+    colType:      'סוג',
+    colBag:       'שקית',
+    colDrained:   'נוקז (ק"ג)',
+    colNotes:     'הערות',
+    tDrainFill:   'ניקוז ומילוי',
+    tDrain:       'ניקוז',
+    tFill:        'מילוי',
+    noExchanges:  'אין רשומות שחלוף לתקופה זו',
+    printBtn:     'הדפס / שמור כ-PDF',
+    footer:       'נשלח על ידי PD Tracker',
+    dir:          'rtl'
+  };
+  return {
+    title:        'PD History Report',
+    patient:      'Patient',
+    generated:    'Generated',
+    weightTitle:  'Weight Trend (kg)',
+    bpTitle:      'Blood Pressure (mmHg)',
+    exchTitle:    'Exchange Log',
+    records:      'records',
+    colDate:      'Date',
+    colTime:      'Time',
+    colType:      'Type',
+    colBag:       'Bag',
+    colDrained:   'Drained (kg)',
+    colNotes:     'Notes',
+    tDrainFill:   'Drain &amp; Fill',
+    tDrain:       'Drain',
+    tFill:        'Fill',
+    noExchanges:  'No exchange records for this period',
+    printBtn:     'Print / Save as PDF',
+    footer:       'Sent by PD Tracker',
+    dir:          'ltr'
+  };
+}
 
-  var rows = exchanges.map(function(r) {
-    var bg = exchanges.indexOf(r) % 2 === 0 ? '#fff' : '#f9f9f9';
+function _buildEmailHtml(patientName, from, to, weightSvg, bpSvg, exchanges, lang) {
+  var tz   = Session.getScriptTimeZone();
+  var gen  = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  var i18n = _reportI18n(lang || 'en');
+  var rtl  = i18n.dir === 'rtl';
+  var ta   = rtl ? 'right' : 'left';   // text-align for normal cells
+  var na   = rtl ? 'left'  : 'right';  // text-align for numeric cells
+
+  var typeMap = {};
+  typeMap['drain_fill'] = i18n.tDrainFill;
+  typeMap['drain']      = i18n.tDrain;
+  typeMap['fill']       = i18n.tFill;
+
+  var tdBase = 'padding:6px 8px;border-bottom:1px solid #eee;vertical-align:top;word-break:break-word;font-size:13px';
+  var rows = exchanges.map(function(r, idx) {
+    var bg = idx % 2 === 0 ? '#fff' : '#f9f9f9';
     return '<tr style="background:' + bg + '">' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + r.date + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + r.time + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + (typeMap[r.measurementType] || r.measurementType || '') + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + _htmlEscape(r.bagType || '') + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">' + (r.bagWeight  !== '' && r.bagWeight  != null ? parseFloat(r.bagWeight).toFixed(1)  : '') + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">' + (r.fillVolume !== '' && r.fillVolume != null ? parseFloat(r.fillVolume).toFixed(2) : '') + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + _htmlEscape(r.notes || '') + '</td>' +
+      '<td style="' + tdBase + ';text-align:' + ta + ';white-space:nowrap">' + r.date + '</td>' +
+      '<td style="' + tdBase + ';text-align:' + ta + ';white-space:nowrap">' + r.time + '</td>' +
+      '<td style="' + tdBase + ';text-align:' + ta + '">' + (typeMap[r.measurementType] || r.measurementType || '') + '</td>' +
+      '<td style="' + tdBase + ';text-align:' + ta + '">' + _htmlEscape(r.bagType || '') + '</td>' +
+      '<td style="' + tdBase + ';text-align:' + na + ';white-space:nowrap">' + (r.bagWeight != null && r.bagWeight !== '' ? parseFloat(r.bagWeight).toFixed(1) : '') + '</td>' +
+      '<td style="' + tdBase + ';text-align:' + ta + '">' + _htmlEscape(r.notes || '') + '</td>' +
       '</tr>';
   }).join('');
 
   var noRows = exchanges.length === 0
-    ? '<tr><td colspan="7" style="padding:12px;text-align:center;color:#999;font-style:italic">No exchange records for this period</td></tr>'
+    ? '<tr><td colspan="6" style="padding:12px;text-align:center;color:#999;font-style:italic">' + i18n.noExchanges + '</td></tr>'
     : '';
 
-  var TH = 'style="padding:8px;text-align:left;border-bottom:2px solid #2a5fd6;background:#eef1fb;font-size:12px;font-weight:600"';
-  var THR = 'style="padding:8px;text-align:right;border-bottom:2px solid #2a5fd6;background:#eef1fb;font-size:12px;font-weight:600"';
+  var thBase = ';border-bottom:2px solid #2a5fd6;background:#eef1fb;font-size:12px;font-weight:600;padding:8px';
+  var TH  = 'style="text-align:' + ta + thBase + '"';
+  var THN = 'style="text-align:' + na + thBase + ';white-space:nowrap"';
+
+  var h2 = 'font-size:14px;font-weight:600;color:#333;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.04em';
 
   return '<!DOCTYPE html>' +
-    '<html dir="ltr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
-    '<body style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;padding:20px 16px;color:#222;background:#fff">' +
+    '<html dir="' + i18n.dir + '"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<style>@media print{.np{display:none!important}}</style></head>' +
+    '<body style="font-family:Arial,Helvetica,sans-serif;max-width:720px;margin:0 auto;padding:20px 16px;color:#222;background:#fff">' +
+
+    '<div class="np" style="text-align:center;margin-bottom:16px">' +
+    '<button onclick="window.print()" style="background:#2a5fd6;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-family:Arial,sans-serif">' +
+    i18n.printBtn + '</button></div>' +
 
     '<div style="border-bottom:3px solid #2a5fd6;padding-bottom:12px;margin-bottom:20px">' +
-    '<h1 style="margin:0 0 4px;font-size:22px;color:#2a5fd6">PD History Report</h1>' +
-    '<p style="margin:0;color:#666;font-size:13px">Patient: <strong>' + _htmlEscape(patientName) + '</strong> &nbsp;&middot;&nbsp; ' +
-    from + ' &rarr; ' + to + ' &nbsp;&middot;&nbsp; Generated ' + generated + '</p>' +
+    '<h1 style="margin:0 0 4px;font-size:22px;color:#2a5fd6">' + i18n.title + '</h1>' +
+    '<p style="margin:0;color:#666;font-size:13px">' + i18n.patient + ': <strong>' + _htmlEscape(patientName) + '</strong> &nbsp;&middot;&nbsp; ' +
+    from + ' &rarr; ' + to + ' &nbsp;&middot;&nbsp; ' + i18n.generated + ': ' + gen + '</p>' +
     '</div>' +
 
-    '<h2 style="font-size:14px;font-weight:600;color:#333;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em">Weight Trend (kg)</h2>' +
+    '<h2 style="' + h2 + ';margin-top:0">' + i18n.weightTitle + '</h2>' +
     weightSvg +
 
-    '<h2 style="font-size:14px;font-weight:600;color:#333;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.04em">Blood Pressure (mmHg)</h2>' +
+    '<h2 style="' + h2 + '">' + i18n.bpTitle + '</h2>' +
     bpSvg +
 
-    '<h2 style="font-size:14px;font-weight:600;color:#333;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.04em">Exchange Log (' + exchanges.length + ' records)</h2>' +
-    '<table style="border-collapse:collapse;width:100%;font-size:13px;border:1px solid #ddd">' +
+    '<h2 style="' + h2 + '">' + i18n.exchTitle + ' (' + exchanges.length + ' ' + i18n.records + ')</h2>' +
+    '<div style="overflow-x:auto">' +
+    '<table style="border-collapse:collapse;width:100%;min-width:460px;font-size:13px;border:1px solid #ddd;table-layout:fixed">' +
+    '<colgroup>' +
+    '<col style="width:92px">' +   // Date
+    '<col style="width:56px">' +   // Time
+    '<col style="width:112px">' +  // Type
+    '<col style="width:78px">' +   // Bag
+    '<col style="width:82px">' +   // Drained
+    '<col>' +                       // Notes — takes remaining space
+    '</colgroup>' +
     '<thead><tr>' +
-    '<th ' + TH  + '>Date</th>' +
-    '<th ' + TH  + '>Time</th>' +
-    '<th ' + TH  + '>Type</th>' +
-    '<th ' + TH  + '>Bag</th>' +
-    '<th ' + THR + '>Drained (kg)</th>' +
-    '<th ' + THR + '>Fill Vol (L)</th>' +
-    '<th ' + TH  + '>Notes</th>' +
+    '<th ' + TH  + '>' + i18n.colDate    + '</th>' +
+    '<th ' + TH  + '>' + i18n.colTime    + '</th>' +
+    '<th ' + TH  + '>' + i18n.colType    + '</th>' +
+    '<th ' + TH  + '>' + i18n.colBag     + '</th>' +
+    '<th ' + THN + '>' + i18n.colDrained + '</th>' +
+    '<th ' + TH  + '>' + i18n.colNotes   + '</th>' +
     '</tr></thead>' +
     '<tbody>' + rows + noRows + '</tbody>' +
-    '</table>' +
+    '</table></div>' +
 
-    '<p style="color:#bbb;font-size:11px;margin-top:28px;border-top:1px solid #eee;padding-top:10px">Sent by PD Tracker &middot; ' + generated + '</p>' +
+    '<p style="color:#bbb;font-size:11px;margin-top:28px;border-top:1px solid #eee;padding-top:10px">' + i18n.footer + ' &middot; ' + gen + '</p>' +
     '</body></html>';
 }
 

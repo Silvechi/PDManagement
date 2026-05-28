@@ -2,6 +2,13 @@
 // history.js — Exchange history screen
 // ============================================================
 
+const MAIL_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true">
+  <rect x="2" y="4" width="20" height="16" rx="2"/>
+  <polyline points="2,4 12,13 22,4"/>
+</svg>`;
+
 const HIST_PRESETS = [
   { label: '1W', days: 7  },
   { label: '1M', days: 30 },
@@ -26,11 +33,7 @@ function _activePreset() {
   return HIST_PRESETS.find(p => _histFrom === _daysAgoStr(p.days) && to === _todayStr()) || null;
 }
 
-async function renderHistory(container) {
-  _histFrom = _daysAgoStr(7);
-  _histTo   = _todayStr();
-  _histRows = null;
-
+function _histBuildShell(container) {
   container.innerHTML = `
     <div class="page">
       <div class="page-head">
@@ -38,6 +41,8 @@ async function renderHistory(container) {
           <h1 class="page-title">${t('hist.title')}</h1>
           <div class="page-sub">${t('hist.sub')}</div>
         </div>
+        <button class="ghost-btn hist-email-btn" onclick="_histShowEmailScreen(document.getElementById('screen-container'))"
+                title="${t('hist.email_btn')}" aria-label="${t('hist.email_btn')}">${MAIL_ICON}</button>
       </div>
       <div class="hist-filter">
         <div class="hist-filter-top">
@@ -62,8 +67,21 @@ async function renderHistory(container) {
       <div id="hist-content"></div>
     </div>
   `;
-
   _renderHistChips();
+}
+
+async function renderHistory(container) {
+  _histFrom = _daysAgoStr(7);
+  _histTo   = _todayStr();
+  _histRows = null;
+  _histBuildShell(container);
+  await _fetchAndRenderHist();
+}
+
+// Back-navigation from email sub-screen — restores history shell preserving current date filter
+async function _histEmailBack(container) {
+  _histRows = null;
+  _histBuildShell(container);
   await _fetchAndRenderHist();
 }
 
@@ -259,4 +277,112 @@ function _histFmtTime(timeVal) {
     }
   }
   return s.slice(0, 5);
+}
+
+// ============================================================
+// Email report sub-screen
+// ============================================================
+
+async function _histShowEmailScreen(container) {
+  const savedFrom = _histFrom;
+  const savedTo   = _histTo;
+
+  container.innerHTML = `
+    <div class="page">
+      <div class="page-head">
+        <button class="ghost-btn back-btn" onclick="_histEmailBack(document.getElementById('screen-container'))"
+                aria-label="${t('common.back')}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               aria-hidden="true"><polyline points="15,18 9,12 15,6"/></svg>
+        </button>
+        <div>
+          <h1 class="page-title">${t('hist.email_title')}</h1>
+          <div class="page-sub">${t('hist.email_range')}: ${escHtml(savedFrom)} → ${escHtml(savedTo)}</div>
+        </div>
+      </div>
+      <div id="email-screen-body">
+        <div class="loading-state">${t('common.loading')}</div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const { recipients } = await API.getRecipients();
+    _histRenderRecipientList(container, recipients, savedFrom, savedTo);
+  } catch (err) {
+    const body = document.getElementById('email-screen-body');
+    if (body) body.innerHTML = `<div class="feedback feedback-error">${t('common.failed', { msg: escHtml(err.message) })}</div>`;
+  }
+}
+
+function _histRenderRecipientList(container, recipients, savedFrom, savedTo) {
+  const body = document.getElementById('email-screen-body');
+  if (!body) return;
+
+  if (!recipients || !recipients.length) {
+    body.innerHTML = `<p class="no-data">${t('hist.email_none')}</p>`;
+    return;
+  }
+
+  const rows = recipients.map((r, i) => `
+    <label class="email-recipient-row">
+      <input type="checkbox" class="email-recipient-cb" value="${escHtml(r.email)}" checked>
+      <span class="email-recipient-info">
+        <span class="email-recipient-name">${escHtml(r.name)}</span>
+        <span class="email-recipient-email">${escHtml(r.email)}</span>
+      </span>
+    </label>
+  `).join('');
+
+  body.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">${t('hist.email_recipients')}</h2>
+        <label class="email-select-all">
+          <input type="checkbox" id="email-select-all-cb" checked onchange="_histEmailToggleAll(this.checked)">
+          <span>${t('hist.email_select_all')}</span>
+        </label>
+      </div>
+      <div class="email-recipient-list">${rows}</div>
+    </div>
+    <div id="email-feedback"></div>
+    <button class="primary-btn w-full lg" id="email-send-btn" onclick="_histSendEmail(document.getElementById('screen-container'))">
+      ${t('hist.email_send')}
+    </button>
+  `;
+}
+
+function _histEmailToggleAll(checked) {
+  document.querySelectorAll('.email-recipient-cb').forEach(cb => { cb.checked = checked; });
+}
+
+async function _histSendEmail(container) {
+  const sendBtn  = document.getElementById('email-send-btn');
+  const feedback = document.getElementById('email-feedback');
+
+  const selected = Array.from(document.querySelectorAll('.email-recipient-cb:checked'))
+    .map(cb => cb.value);
+
+  if (!selected.length) {
+    if (feedback) feedback.innerHTML = `<div class="feedback feedback-error">${t('hist.email_no_recipients')}</div>`;
+    return;
+  }
+
+  if (sendBtn)  { sendBtn.disabled = true; sendBtn.textContent = t('hist.email_sending'); }
+  if (feedback) feedback.innerHTML = '';
+
+  try {
+    const result = await API.sendHistoryEmail({
+      patientId:  getActivePatientId(),
+      from:       _histFrom,
+      to:         _histTo,
+      recipients: selected
+    });
+    if (feedback) feedback.innerHTML = `<div class="feedback feedback-success">${t('hist.email_sent', { n: result.sent })}</div>`;
+    setTimeout(() => _histEmailBack(container), 1500);
+  } catch (err) {
+    if (feedback) feedback.innerHTML = `<div class="feedback feedback-error">${t('hist.email_error', { msg: escHtml(err.message) })}</div>`;
+    if (sendBtn)  { sendBtn.disabled = false; sendBtn.textContent = t('hist.email_send'); }
+  }
 }

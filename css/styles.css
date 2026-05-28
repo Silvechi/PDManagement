@@ -436,6 +436,11 @@ textarea, input { font: inherit; }
   font-size: 13px; color: var(--text-2);
 }
 .ghost-btn:hover { background: var(--surface-2); color: var(--text); }
+.ghost-btn.back-btn {
+  flex: none; width: 36px; height: 36px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  align-self: center;
+}
 
 /* ── Log screen ─────────────────────────────────────────────── */
 .tab-pill {
@@ -916,6 +921,64 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
   margin-top: 4px;
   font-style: italic;
 }
+
+/* ── History email report ────────────────────────────────────── */
+.hist-email-btn {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; padding: 0;
+  border-radius: 8px;
+  color: var(--text-2);
+  align-self: center;
+}
+.hist-email-btn:hover { background: var(--surface-2); color: var(--accent); }
+
+.email-recipient-list {
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+.email-recipient-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.email-recipient-row:last-child { border-bottom: none; }
+.email-recipient-row input[type="checkbox"] {
+  width: 18px; height: 18px; flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.email-recipient-info {
+  display: flex; flex-direction: column; gap: 1px;
+  min-width: 0;
+}
+.email-recipient-name {
+  font-size: 14px; font-weight: 500;
+  color: var(--text); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.email-recipient-email {
+  font-size: 12px; color: var(--text-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.email-select-all {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-2);
+  cursor: pointer;
+}
+.email-select-all input[type="checkbox"] {
+  width: 16px; height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+#email-feedback { margin: 4px 0; }
+
+#email-send-btn { margin-top: 12px; }
 
 /* ── Low-stock banner card ───────────────────────────────────── */
 .card-low-stock {

@@ -43,9 +43,9 @@ async function apiGet(action, params = {}) {
   }
 }
 
-async function apiPost(action, body = {}) {
+async function apiPost(action, body = {}, opts = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), opts.timeout || 15000);
 
   try {
     if (!APPS_SCRIPT_URL) {
@@ -90,6 +90,10 @@ const API = {
   getPatients:  ()     => apiGet('getPatients'),
   addPatient:   (data) => apiPost('addPatient',  data),
   editPatient:  (data) => apiPost('editPatient', data),
+
+  // Email report
+  getRecipients:    ()     => apiGet('getRecipients'),
+  sendHistoryEmail: (data) => apiPost('sendHistoryEmail', data, { timeout: 45000 }),
 
   // Auth — these are public (no approved token required)
   validateToken:    (token) => apiGet('validateToken', { token }),

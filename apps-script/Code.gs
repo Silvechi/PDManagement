@@ -14,7 +14,8 @@ var TAB = {
   INVENTORY:    'Inventory',
   CONFIG:       'Config',
   TOKENS:       'Tokens',
-  PATIENTS:     'Patients'
+  PATIENTS:     'Patients',
+  RECIPIENTS:   'Recipients'
 };
 
 var HEADERS = {
@@ -22,7 +23,8 @@ var HEADERS = {
   Inventory:          ['DateTime', 'Item Name', 'Count', 'PatientID', 'DeviceToken'],
   Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName', 'maxHours', 'reorderDays', 'displayNameHe', 'valueHe', 'descriptionHe'],
   Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used', 'PasswordHash', 'ActivePatientID', 'Theme', 'Language', 'TextSize'],
-  Patients:           ['PatientID', 'Name', 'DOB', 'Comment', 'Active', 'LastUpdated']
+  Patients:           ['PatientID', 'Name', 'DOB', 'Comment', 'Active', 'LastUpdated'],
+  Recipients:         ['Name', 'Email', 'Active']
 };
 
 // CONFIG_DEFAULTS is defined in Config.defaults.gs (gitignored).
@@ -46,6 +48,7 @@ function doGet(e) {
     if (action === 'getConfig')      return jsonResponse(getConfig());
     if (action === 'getPatients')    return jsonResponse(getPatients());
     if (action === 'getDataVersion') return jsonResponse(getDataVersion());
+    if (action === 'getRecipients')  return jsonResponse(getRecipients());
     return jsonResponse({ error: 'Unknown GET action: ' + action });
   } catch (err) {
     return jsonResponse({ error: err.message });
@@ -70,6 +73,7 @@ function doPost(e) {
     if (action === 'addPatient')       return jsonResponse(addPatient(body));
     if (action === 'editPatient')      return jsonResponse(editPatient(body));
     if (action === 'savePreferences')  return jsonResponse(savePreferences(body));
+    if (action === 'sendHistoryEmail') return jsonResponse(sendHistoryEmail(body));
     return jsonResponse({ error: 'Unknown POST action: ' + action });
   } catch (err) {
     return jsonResponse({ error: err.message });
@@ -132,16 +136,22 @@ function _readDataLastUpdated() {
 
 function _touchDataLastUpdated() {
   var configSheet = ss().getSheetByName(TAB.CONFIG);
-  if (!configSheet || configSheet.getLastRow() <= 1) return;
-  var keys = configSheet.getRange(2, 2, configSheet.getLastRow() - 1, 1).getValues();
-  var tz   = Session.getScriptTimeZone();
-  var now  = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
-  for (var i = 0; i < keys.length; i++) {
-    if (String(keys[i][0]) === 'dataLastUpdated') {
-      configSheet.getRange(i + 2, 3).setValue(now);
-      return;
+  if (!configSheet) return;
+  var tz  = Session.getScriptTimeZone();
+  var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+  // Search existing rows for the key
+  if (configSheet.getLastRow() > 1) {
+    var keys = configSheet.getRange(2, 2, configSheet.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < keys.length; i++) {
+      if (String(keys[i][0]) === 'dataLastUpdated') {
+        configSheet.getRange(i + 2, 3).setValue(now);
+        return;
+      }
     }
   }
+  // Key row missing — create it so future reads and bumps work correctly.
+  // (Happens when setupSheet() was never run or the row was manually deleted.)
+  configSheet.appendRow(['', 'dataLastUpdated', now]);
 }
 
 // ============================================================
@@ -390,6 +400,20 @@ function setupSheet() {
     tokSheet.setColumnWidth(7, 220); // ActivePatientID
     tokSheet.setColumnWidth(8, 80);  // Theme
     tokSheet.setColumnWidth(9, 80);  // Language
+  }
+
+  // Recipients sheet: freeze header, column widths, Active dropdown
+  var recipientsSheet = ss().getSheetByName(TAB.RECIPIENTS);
+  if (recipientsSheet) {
+    recipientsSheet.setFrozenRows(1);
+    recipientsSheet.setColumnWidth(1, 180); // Name
+    recipientsSheet.setColumnWidth(2, 240); // Email
+    recipientsSheet.setColumnWidth(3, 70);  // Active
+    var recipActiveRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['TRUE', 'FALSE'], true)
+      .setAllowInvalid(false)
+      .build();
+    recipientsSheet.getRange(2, 3, 1000, 1).setDataValidation(recipActiveRule);
   }
 
   // Patients sheet: freeze header, column widths, Active dropdown
@@ -662,6 +686,307 @@ function getSheet(name) {
   var sheet = ss().getSheetByName(name);
   if (!sheet) throw new Error('Sheet not found: ' + name + '. Run setupSheet() first.');
   return sheet;
+}
+
+// ============================================================
+// Email / Recipients
+// ============================================================
+
+function getRecipients() {
+  var sheet = ss().getSheetByName(TAB.RECIPIENTS);
+  if (!sheet || sheet.getLastRow() <= 1) return { recipients: [] };
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  var out  = [];
+  rows.forEach(function(r) {
+    if (String(r[2]).toUpperCase() === 'TRUE' && r[1]) {
+      out.push({ name: String(r[0]), email: String(r[1]) });
+    }
+  });
+  return { recipients: out };
+}
+
+function sendHistoryEmail(data) {
+  if (!data.patientId) return { error: 'patientId required' };
+  if (!data.from || !data.to) return { error: 'Date range required' };
+
+  // 1. Validate recipients against server-side whitelist — client cannot send to arbitrary addresses
+  var allowedRecs = getRecipients().recipients;
+  var allowedMap  = {};
+  allowedRecs.forEach(function(r) { allowedMap[r.email] = r.name; });
+  var targets = (Array.isArray(data.recipients) ? data.recipients : [])
+    .filter(function(e) { return typeof e === 'string' && allowedMap.hasOwnProperty(e); });
+  if (!targets.length) return { error: 'No valid recipients selected' };
+
+  // 2. Fetch all rows for date range (all measurement types — weight, bp, exchanges)
+  var rows      = (getHistory(data.patientId, data.from, data.to).rows) || [];
+  var EXCH      = { drain: true, fill: true, drain_fill: true };
+  var exchanges = rows.filter(function(r) { return EXCH[r.measurementType]; });
+  var weights   = rows.filter(function(r) { return r.measurementType === 'weight' && r.weight !== '' && r.weight !== null; });
+  var bpRows    = rows.filter(function(r) { return r.measurementType === 'bp'     && r.bpSystolic !== '' && r.bpSystolic !== null; });
+
+  // 3. Charts (SVG strings, embedded in HTML body)
+  var weightSvg = _buildChartSvg(
+    [{ points: weights.map(function(r) { return { date: r.date, val: parseFloat(r.weight) }; }),
+       color: '#2a5fd6', label: 'Weight (kg)' }], {});
+
+  var bpSvg = _buildChartSvg(
+    [{ points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpSystolic)  }; }), color: '#2a5fd6', label: 'Systolic' },
+     { points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpDiastolic) }; }), color: '#e74c3c', label: 'Diastolic' }], {});
+
+  // 4. Patient name
+  var patientName = _getPatientName(data.patientId) || data.patientId;
+
+  // 5. Build HTML body + PDF attachment
+  var htmlBody = _buildEmailHtml(patientName, data.from, data.to, weightSvg, bpSvg, exchanges);
+  var pdfBlob  = _buildEmailPdf(patientName, data.from, data.to, exchanges, weights, bpRows);
+  pdfBlob = pdfBlob.setName('PD_Report_' + data.from + '_to_' + data.to + '.pdf');
+
+  // 6. Send to each validated recipient
+  var subject = 'PD Tracker: History Report ' + data.from + ' → ' + data.to;
+  targets.forEach(function(email) {
+    MailApp.sendEmail({ to: email, name: 'PD Tracker', subject: subject, htmlBody: htmlBody, attachments: [pdfBlob] });
+  });
+  return { success: true, sent: targets.length };
+}
+
+// Generates a standalone SVG line chart. series = [{ points:[{date,val}], color, label }]
+function _buildChartSvg(series, opts) {
+  var W = 560, H = 200;
+  var PL = 52, PR = 16, PT = 20, PB = 60;
+  var cW = W - PL - PR;  // 492
+  var cH = H - PT - PB;  // 120
+
+  // Union of all dates; all values
+  var dateSet = {}, allVals = [];
+  series.forEach(function(s) {
+    (s.points || []).forEach(function(p) {
+      if (!isNaN(p.val)) { dateSet[p.date] = true; allVals.push(p.val); }
+    });
+  });
+  var dates = Object.keys(dateSet).sort();
+  var n     = dates.length;
+
+  // Empty state
+  if (!n || !allVals.length) {
+    return '<svg width="' + W + '" height="60" viewBox="0 0 ' + W + ' 60" xmlns="http://www.w3.org/2000/svg" style="display:block">' +
+      '<text x="' + (W/2) + '" y="36" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#aaa">No data for this period</text>' +
+      '</svg>';
+  }
+
+  // Y range with 5 % margin
+  var yMin = Math.min.apply(null, allVals);
+  var yMax = Math.max.apply(null, allVals);
+  if (yMax === yMin) { yMin -= 1; yMax += 1; }
+  var rng  = yMax - yMin;
+  yMin -= rng * 0.08; yMax += rng * 0.08; rng = yMax - yMin;
+
+  function xFor(date) {
+    var i = dates.indexOf(date);
+    return n === 1 ? PL + cW / 2 : PL + (i / (n - 1)) * cW;
+  }
+  function yFor(val) { return PT + cH - ((val - yMin) / rng) * cH; }
+
+  var out = [];
+  out.push('<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="display:block;background:#fff">');
+
+  // Horizontal gridlines + y-axis labels (5 steps)
+  for (var g = 0; g <= 4; g++) {
+    var gy   = PT + (g / 4) * cH;
+    var gVal = yMax - (g / 4) * rng;
+    out.push('<line x1="' + PL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - PR) + '" y2="' + gy.toFixed(1) + '" stroke="#ececec" stroke-width="1"/>');
+    out.push('<text x="' + (PL - 5) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" font-family="Arial,sans-serif" font-size="10" fill="#999">' + gVal.toFixed(gVal < 10 ? 1 : 0) + '</text>');
+  }
+
+  // Axes
+  out.push('<line x1="' + PL + '" y1="' + PT + '" x2="' + PL + '" y2="' + (PT + cH) + '" stroke="#ccc" stroke-width="1"/>');
+  out.push('<line x1="' + PL + '" y1="' + (PT + cH) + '" x2="' + (W - PR) + '" y2="' + (PT + cH) + '" stroke="#ccc" stroke-width="1"/>');
+
+  // X-axis date labels (at most 7 evenly spaced)
+  var step = Math.ceil(n / 7);
+  dates.forEach(function(d, i) {
+    if (i % step !== 0 && i !== n - 1) return;
+    var parts = d.split('-');
+    out.push('<text x="' + xFor(d).toFixed(1) + '" y="' + (PT + cH + 14) + '" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#999">' + parts[1] + '/' + parts[2] + '</text>');
+  });
+
+  // Series lines + dots
+  series.forEach(function(s) {
+    var pts = (s.points || []).filter(function(p) { return !isNaN(p.val); });
+    if (!pts.length) return;
+    var ptStr = pts.map(function(p) { return xFor(p.date).toFixed(1) + ',' + yFor(p.val).toFixed(1); }).join(' ');
+    out.push('<polyline points="' + ptStr + '" fill="none" stroke="' + s.color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>');
+    pts.forEach(function(p) {
+      out.push('<circle cx="' + xFor(p.date).toFixed(1) + '" cy="' + yFor(p.val).toFixed(1) + '" r="3" fill="' + s.color + '"/>');
+    });
+  });
+
+  // Legend (only when >1 series)
+  if (series.length > 1) {
+    var lx = PL, ly = PT + cH + 34;
+    series.forEach(function(s) {
+      out.push('<circle cx="' + (lx + 5) + '" cy="' + ly + '" r="4" fill="' + s.color + '"/>');
+      out.push('<text x="' + (lx + 13) + '" y="' + (ly + 4) + '" font-family="Arial,sans-serif" font-size="10" fill="#555">' + s.label + '</text>');
+      lx += 110;
+    });
+  }
+
+  out.push('</svg>');
+  return out.join('\n');
+}
+
+function _buildEmailHtml(patientName, from, to, weightSvg, bpSvg, exchanges) {
+  var tz        = Session.getScriptTimeZone();
+  var generated = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  var typeMap   = { drain_fill: 'Drain &amp; Fill', drain: 'Drain', fill: 'Fill' };
+
+  var rows = exchanges.map(function(r) {
+    var bg = exchanges.indexOf(r) % 2 === 0 ? '#fff' : '#f9f9f9';
+    return '<tr style="background:' + bg + '">' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + r.date + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + r.time + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + (typeMap[r.measurementType] || r.measurementType || '') + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + _htmlEscape(r.bagType || '') + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">' + (r.bagWeight  !== '' && r.bagWeight  != null ? parseFloat(r.bagWeight).toFixed(1)  : '') + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">' + (r.fillVolume !== '' && r.fillVolume != null ? parseFloat(r.fillVolume).toFixed(2) : '') + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee">' + _htmlEscape(r.notes || '') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  var noRows = exchanges.length === 0
+    ? '<tr><td colspan="7" style="padding:12px;text-align:center;color:#999;font-style:italic">No exchange records for this period</td></tr>'
+    : '';
+
+  var TH = 'style="padding:8px;text-align:left;border-bottom:2px solid #2a5fd6;background:#eef1fb;font-size:12px;font-weight:600"';
+  var THR = 'style="padding:8px;text-align:right;border-bottom:2px solid #2a5fd6;background:#eef1fb;font-size:12px;font-weight:600"';
+
+  return '<!DOCTYPE html>' +
+    '<html dir="ltr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;padding:20px 16px;color:#222;background:#fff">' +
+
+    '<div style="border-bottom:3px solid #2a5fd6;padding-bottom:12px;margin-bottom:20px">' +
+    '<h1 style="margin:0 0 4px;font-size:22px;color:#2a5fd6">PD History Report</h1>' +
+    '<p style="margin:0;color:#666;font-size:13px">Patient: <strong>' + _htmlEscape(patientName) + '</strong> &nbsp;&middot;&nbsp; ' +
+    from + ' &rarr; ' + to + ' &nbsp;&middot;&nbsp; Generated ' + generated + '</p>' +
+    '</div>' +
+
+    '<h2 style="font-size:14px;font-weight:600;color:#333;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em">Weight Trend (kg)</h2>' +
+    weightSvg +
+
+    '<h2 style="font-size:14px;font-weight:600;color:#333;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.04em">Blood Pressure (mmHg)</h2>' +
+    bpSvg +
+
+    '<h2 style="font-size:14px;font-weight:600;color:#333;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.04em">Exchange Log (' + exchanges.length + ' records)</h2>' +
+    '<table style="border-collapse:collapse;width:100%;font-size:13px;border:1px solid #ddd">' +
+    '<thead><tr>' +
+    '<th ' + TH  + '>Date</th>' +
+    '<th ' + TH  + '>Time</th>' +
+    '<th ' + TH  + '>Type</th>' +
+    '<th ' + TH  + '>Bag</th>' +
+    '<th ' + THR + '>Drained (kg)</th>' +
+    '<th ' + THR + '>Fill Vol (L)</th>' +
+    '<th ' + TH  + '>Notes</th>' +
+    '</tr></thead>' +
+    '<tbody>' + rows + noRows + '</tbody>' +
+    '</table>' +
+
+    '<p style="color:#bbb;font-size:11px;margin-top:28px;border-top:1px solid #eee;padding-top:10px">Sent by PD Tracker &middot; ' + generated + '</p>' +
+    '</body></html>';
+}
+
+function _buildEmailPdf(patientName, from, to, exchanges, weights, bpRows) {
+  var tz        = Session.getScriptTimeZone();
+  var generated = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  var typeMap   = { drain_fill: 'Drain & Fill', drain: 'Drain', fill: 'Fill' };
+
+  var doc  = null;
+  var blob = null;
+  try {
+    doc  = DocumentApp.create('__pd_export_' + Utilities.getUuid() + '__');
+    var body = doc.getBody();
+    body.setMarginTop(36).setMarginBottom(36).setMarginLeft(54).setMarginRight(54);
+
+    // Title
+    body.appendParagraph('PD History Report — ' + patientName)
+        .setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    body.appendParagraph('Period: ' + from + ' → ' + to).setFontSize(10).setForegroundColor('#444444');
+    body.appendParagraph('Generated: ' + generated).setFontSize(9).setForegroundColor('#888888');
+    body.appendHorizontalRule();
+
+    // Stats summary
+    body.appendParagraph('Summary').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+    var wVals = weights.map(function(r) { return parseFloat(r.weight); }).filter(function(v) { return !isNaN(v) && v > 0; });
+    if (wVals.length) {
+      var wAvg = (wVals.reduce(function(a,b){return a+b;},0)/wVals.length).toFixed(1);
+      body.appendParagraph('Weight: avg ' + wAvg + ' kg  ·  min ' + Math.min.apply(null,wVals).toFixed(1) + ' kg  ·  max ' + Math.max.apply(null,wVals).toFixed(1) + ' kg  (' + wVals.length + ' readings)').setFontSize(10);
+    } else {
+      body.appendParagraph('Weight: no readings in this period').setFontSize(10).setForegroundColor('#888888');
+    }
+
+    var sVals = bpRows.map(function(r) { return parseInt(r.bpSystolic);  }).filter(function(v) { return !isNaN(v) && v > 0; });
+    var dVals = bpRows.map(function(r) { return parseInt(r.bpDiastolic); }).filter(function(v) { return !isNaN(v) && v > 0; });
+    if (sVals.length) {
+      var sAvg = Math.round(sVals.reduce(function(a,b){return a+b;},0)/sVals.length);
+      var dAvg = Math.round(dVals.reduce(function(a,b){return a+b;},0)/dVals.length);
+      body.appendParagraph('Blood Pressure: avg ' + sAvg + '/' + dAvg + ' mmHg  ·  range ' +
+        Math.min.apply(null,sVals) + '–' + Math.max.apply(null,sVals) + '/' +
+        Math.min.apply(null,dVals) + '–' + Math.max.apply(null,dVals) + ' mmHg  (' + sVals.length + ' readings)').setFontSize(10);
+    } else {
+      body.appendParagraph('Blood Pressure: no readings in this period').setFontSize(10).setForegroundColor('#888888');
+    }
+
+    body.appendParagraph('See the HTML email for weight and BP charts.').setFontSize(9).setForegroundColor('#aaaaaa').setItalic(true);
+    body.appendHorizontalRule();
+
+    // Exchange table
+    body.appendParagraph('Exchanges (' + exchanges.length + ' records)').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+    var headers = [['Date', 'Time', 'Type', 'Bag', 'Drained (kg)', 'Fill Vol (L)', 'Notes']];
+    var dataRows = exchanges.map(function(r) {
+      return [
+        r.date,
+        r.time,
+        typeMap[r.measurementType] || r.measurementType || '',
+        r.bagType   || '',
+        r.bagWeight  !== '' && r.bagWeight  != null ? String(parseFloat(r.bagWeight).toFixed(1))  : '',
+        r.fillVolume !== '' && r.fillVolume != null ? String(parseFloat(r.fillVolume).toFixed(2)) : '',
+        r.notes || ''
+      ];
+    });
+
+    if (dataRows.length) {
+      var table = body.appendTable(headers.concat(dataRows));
+      // Bold header row
+      var hRow = table.getRow(0);
+      for (var c = 0; c < hRow.getNumCells(); c++) {
+        hRow.getCell(c).getChild(0).asParagraph().editAsText().setBold(true);
+      }
+      table.setFontSize(9);
+    } else {
+      body.appendParagraph('No exchange records for this period.').setFontSize(10).setForegroundColor('#888888').setItalic(true);
+    }
+
+    // Footer
+    body.appendHorizontalRule();
+    body.appendParagraph('Sent by PD Tracker · ' + generated).setFontSize(8).setForegroundColor('#bbbbbb');
+
+    doc.saveAndClose();
+    blob = doc.getAs(MimeType.PDF);
+  } finally {
+    if (doc) {
+      try { DriveApp.getFileById(doc.getId()).setTrashed(true); } catch(_) {}
+    }
+  }
+  return blob;
+}
+
+// Minimal HTML-entity escaper for email body construction (server-side, no DOM available)
+function _htmlEscape(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function jsonResponse(obj) {

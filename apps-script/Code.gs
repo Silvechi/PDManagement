@@ -66,7 +66,12 @@ function doPost(e) {
   try {
     // Public actions — no approved token required
     if (action === 'loginOrRegister') return jsonResponse(loginOrRegister(body.label, body.passwordHash, body.token));
-    // Protected actions — readonly tokens not allowed on POST (writes)
+    // Read-only POST actions (no data modification — readonly tokens allowed)
+    if (action === 'getHistoryReportHtml') {
+      checkToken(body.token, true);
+      return jsonResponse(getHistoryReportHtml(body));
+    }
+    // Write actions — full-access tokens only
     checkToken(body.token);
     if (action === 'logMeasurement')   return jsonResponse(logMeasurement(body));
     if (action === 'updateInventory')  return jsonResponse(updateInventory(body));
@@ -746,6 +751,31 @@ function sendHistoryEmail(data) {
     MailApp.sendEmail({ to: email, name: 'PD Tracker', subject: subject, htmlBody: htmlBody, attachments: [csvBlob] });
   });
   return { success: true, sent: targets.length };
+}
+
+// Returns the full HTML report as a string — no email, no extra permissions.
+// The client opens it in a new tab; user can print → Save as PDF.
+function getHistoryReportHtml(data) {
+  if (!data.patientId) return { error: 'patientId required' };
+  if (!data.from || !data.to) return { error: 'Date range required' };
+
+  var rows      = (getHistory(data.patientId, data.from, data.to).rows) || [];
+  var EXCH      = { drain: true, fill: true, drain_fill: true };
+  var exchanges = rows.filter(function(r) { return EXCH[r.measurementType]; });
+  var weights   = rows.filter(function(r) { return r.measurementType === 'weight' && r.weight !== '' && r.weight !== null; });
+  var bpRows    = rows.filter(function(r) { return r.measurementType === 'bp'     && r.bpSystolic !== '' && r.bpSystolic !== null; });
+
+  var weightSvg = _buildChartSvg(
+    [{ points: weights.map(function(r) { return { date: r.date, val: parseFloat(r.weight) }; }),
+       color: '#2a5fd6', label: 'Weight (kg)' }], {});
+
+  var bpSvg = _buildChartSvg(
+    [{ points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpSystolic)  }; }), color: '#2a5fd6', label: 'Systolic' },
+     { points: bpRows.map(function(r) { return { date: r.date, val: parseInt(r.bpDiastolic) }; }), color: '#e74c3c', label: 'Diastolic' }], {});
+
+  var patientName = _getPatientName(data.patientId) || data.patientId;
+  var html = _buildEmailHtml(patientName, data.from, data.to, weightSvg, bpSvg, exchanges);
+  return { html: html };
 }
 
 // Generates a standalone SVG line chart. series = [{ points:[{date,val}], color, label }]

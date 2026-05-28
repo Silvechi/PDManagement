@@ -347,9 +347,14 @@ function _histRenderRecipientList(container, recipients, savedFrom, savedTo) {
       <div class="email-recipient-list">${rows}</div>
     </div>
     <div id="email-feedback"></div>
-    <button class="primary-btn w-full lg" id="email-send-btn" onclick="_histSendEmail(document.getElementById('screen-container'))">
-      ${t('hist.email_send')}
-    </button>
+    <div class="email-action-row">
+      <button class="primary-btn lg" id="email-send-btn" onclick="_histSendEmail(document.getElementById('screen-container'))">
+        ${t('hist.email_send')}
+      </button>
+      <button class="ghost-btn email-download-btn" id="email-download-btn" onclick="_histDownloadReport()">
+        ${t('hist.email_download')}
+      </button>
+    </div>
   `;
 }
 
@@ -384,5 +389,44 @@ async function _histSendEmail(container) {
   } catch (err) {
     if (feedback) feedback.innerHTML = `<div class="feedback feedback-error">${t('hist.email_error', { msg: escHtml(err.message) })}</div>`;
     if (sendBtn)  { sendBtn.disabled = false; sendBtn.textContent = t('hist.email_send'); }
+  }
+}
+
+async function _histDownloadReport() {
+  const dlBtn   = document.getElementById('email-download-btn');
+  const feedback = document.getElementById('email-feedback');
+
+  // Open the window NOW — synchronously in the click handler — before any await,
+  // or mobile browsers will treat it as a popup and block it.
+  const win = window.open('', '_blank');
+  if (!win) {
+    if (feedback) feedback.innerHTML = `<div class="feedback feedback-error">Popup blocked — please allow popups for this page and try again.</div>`;
+    return;
+  }
+
+  win.document.write('<html><head><meta charset="UTF-8"><title>PD Report</title></head>' +
+    '<body style="font-family:sans-serif;padding:32px;color:#555">' +
+    '<p style="font-size:15px">Generating report…</p></body></html>');
+
+  if (dlBtn) { dlBtn.disabled = true; dlBtn.textContent = t('hist.email_downloading'); }
+  if (feedback) feedback.innerHTML = '';
+
+  try {
+    const result = await API.getHistoryReportHtml({
+      patientId: getActivePatientId(),
+      from:      _histFrom,
+      to:        _histTo
+    });
+    win.document.open();
+    win.document.write(result.html);
+    win.document.close();
+  } catch (err) {
+    win.document.open();
+    win.document.write('<html><body style="font-family:sans-serif;padding:32px;color:#c00">' +
+      '<strong>Error generating report:</strong> ' + escHtml(err.message) + '</body></html>');
+    win.document.close();
+    if (feedback) feedback.innerHTML = `<div class="feedback feedback-error">${t('hist.email_error', { msg: escHtml(err.message) })}</div>`;
+  } finally {
+    if (dlBtn) { dlBtn.disabled = false; dlBtn.textContent = t('hist.email_download'); }
   }
 }

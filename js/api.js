@@ -92,8 +92,9 @@ const API = {
   editPatient:  (data) => apiPost('editPatient', data),
 
   // Email report
-  getRecipients:    ()     => apiGet('getRecipients'),
-  sendHistoryEmail: (data) => apiPost('sendHistoryEmail', data, { timeout: 45000 }),
+  getRecipients:       ()     => apiGet('getRecipients'),
+  sendHistoryEmail:    (data) => apiPost('sendHistoryEmail',    data, { timeout: 45000 }),
+  getHistoryReportHtml:(data) => apiPost('getHistoryReportHtml', data, { timeout: 30000 }),
 
   // Auth — these are public (no approved token required)
   validateToken:    (token) => apiGet('validateToken', { token }),

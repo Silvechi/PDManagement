@@ -150,6 +150,8 @@ const STRINGS = {
     'hist.email_sent':        'Report sent to {n} recipient(s).',
     'hist.email_no_recipients': 'Please select at least one recipient.',
     'hist.email_error':       'Failed to send: {msg}',
+    'hist.email_download':    'Download report',
+    'hist.email_downloading': 'Generating…',
 
     // ── Prep ────────────────────────────────────────────────────
     'prep.title':             'Prep',
@@ -354,6 +356,8 @@ const STRINGS = {
     'hist.email_sent':        'הדוח נשלח ל-{n} נמענים.',
     'hist.email_no_recipients': 'בחר לפחות נמען אחד.',
     'hist.email_error':       'שליחה נכשלה: {msg}',
+    'hist.email_download':    'הורד דוח',
+    'hist.email_downloading': 'מייצר…',
 
     // ── Prep ────────────────────────────────────────────────────
     'prep.title':             'הכנה',

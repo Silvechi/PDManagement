@@ -152,10 +152,10 @@ function logMeasurement(data) {
   }
 
   var sheet    = getSheet(TAB.MEASUREMENTS);
-  var docLock  = LockService.getDocumentLock();
+  var docLock  = LockService.getScriptLock();
   var acquired = false;
   try {
-    docLock.waitForLock(10000);
+    docLock.waitLock(10000);
     acquired = true;
     sheet.appendRow([
       sanitiseForSheet(String(data.date            || '').slice(0, 30)),
@@ -181,10 +181,10 @@ function logMeasurement(data) {
 
 function updateInventory(data) {
   var sheet    = getSheet(TAB.INVENTORY);
-  var docLock  = LockService.getDocumentLock();
+  var docLock  = LockService.getScriptLock();
   var acquired = false;
   try {
-    docLock.waitForLock(10000);
+    docLock.waitLock(10000);
     acquired = true;
     var items    = Array.isArray(data.items) ? data.items : [];
     var datetime = sanitiseForSheet(String(data.datetime || data.date || '').slice(0, 30));
@@ -556,7 +556,7 @@ function setupSheet() {
     auditSheet.setColumnWidth(4, 260); // Detail
   }
 
-  SpreadsheetApp.getUi().alert('Setup complete. All tabs are ready.');
+  Logger.log('setupSheet complete.');
 }
 
 // ============================================================
@@ -595,10 +595,10 @@ function loginOrRegister(label, passwordHash, newUUID) {
   var tz  = Session.getScriptTimeZone();
   var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
 
-  var docLock  = LockService.getDocumentLock();
+  var docLock  = LockService.getScriptLock();
   var acquired = false;
   try {
-    docLock.waitForLock(10000);
+    docLock.waitLock(10000);
     acquired = true;
 
     if (sheet.getLastRow() > 1) {
@@ -751,11 +751,11 @@ function getPatients() {
 function addPatient(data) {
   if (!data.name) return { error: 'Name is required' };
   var sheet = getSheet(TAB.PATIENTS);
-  var docLock  = LockService.getDocumentLock();
+  var docLock  = LockService.getScriptLock();
   var acquired = false;
   var patientId = Utilities.getUuid();
   try {
-    docLock.waitForLock(10000);
+    docLock.waitLock(10000);
     acquired = true;
     var tz  = Session.getScriptTimeZone();
     var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
@@ -778,10 +778,10 @@ function addPatient(data) {
 function editPatient(data) {
   if (!data.patientId) return { error: 'patientId required' };
   var sheet    = getSheet(TAB.PATIENTS);
-  var docLock  = LockService.getDocumentLock();
+  var docLock  = LockService.getScriptLock();
   var acquired = false;
   try {
-    docLock.waitForLock(10000);
+    docLock.waitLock(10000);
     acquired = true;
     // Read rows inside the lock to prevent TOCTOU: concurrent insert/delete shifts row indices
     if (sheet.getLastRow() <= 1) return { error: 'Patient not found' };
@@ -1239,10 +1239,10 @@ function revokeToken(data) {
   if (!data.targetLabel) return { error: 'targetLabel required' };
   var sheet = ss().getSheetByName(TAB.TOKENS);
   if (!sheet || sheet.getLastRow() <= 1) return { error: 'Token not found' };
-  var docLock  = LockService.getDocumentLock();
+  var docLock  = LockService.getScriptLock();
   var acquired = false;
   try {
-    docLock.waitForLock(10000);
+    docLock.waitLock(10000);
     acquired = true;
     var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
     for (var i = 0; i < rows.length; i++) {
@@ -1310,7 +1310,7 @@ function sanitiseForSheet(value) {
 //   (b) CacheService evicts a counter entry (100 KB total cache limit).
 // Both are acceptable trade-offs: the alternative is crashing the caller.
 //
-// The acquired flag prevents releaseLock() from throwing when waitForLock() failed.
+// The acquired flag prevents releaseLock() from throwing when waitLock() failed.
 // Per GAS docs, releaseLock() on a lock you don't hold throws — without the guard
 // that exception would propagate from finally and crash the function instead of returning false.
 function isRateLimited(tokenSuffix) {
@@ -1321,7 +1321,7 @@ function isRateLimited(tokenSuffix) {
   var limited  = false;
   var acquired = false;
   try {
-    lock.waitForLock(3000);
+    lock.waitLock(3000);
     acquired = true;
     var calls    = parseInt(cache.get(key)    || '0', 10);
     var dayCalls = parseInt(cache.get(dayKey) || '0', 10);

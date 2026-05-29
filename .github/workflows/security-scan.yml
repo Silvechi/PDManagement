@@ -19,6 +19,7 @@ jobs:
         uses: gitleaks/gitleaks-action@e6dab246340401bf53eec993b8f05aebe80ac636  # v2.3.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'false'  # artifact upload broken in v2.3.4 on some runners
 
       - name: Check for hardcoded Apps Script URLs
         run: |

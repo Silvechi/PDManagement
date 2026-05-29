@@ -104,8 +104,14 @@ function _dashSetRefreshing(on) {
 
 async function refreshDashboard() {
   const patientId = getActivePatientId();
+  // Wipe the cache so stale data is gone before we show the loading state
+  AppCache.clearDashboard(patientId);
   _dashSetRefreshing(true);
-  await _dashFetch(patientId, true); // silent — cached content already showing
+  const loading = document.getElementById('dash-loading');
+  const content = document.getElementById('dash-content');
+  if (content) content.innerHTML = '';
+  if (loading) loading.style.display = '';
+  await _dashFetch(patientId); // not silent — loading spinner shows while fetching
   _dashSetRefreshing(false);
 }
 

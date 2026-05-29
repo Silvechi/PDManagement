@@ -54,6 +54,15 @@ const AppCache = {
     } catch {}
   },
 
+  /**
+   * Fully remove a cache entry from memory and localStorage.
+   * The next read will return null, forcing a fresh network fetch.
+   */
+  clear(name) {
+    delete _mem[name];
+    try { localStorage.removeItem(_CACHE_PREFIX + name); } catch {}
+  },
+
   // ── Patients ──────────────────────────────────────────────────
   // data: Patient[]
   getPatients()          { return this.get('patients'); },
@@ -69,6 +78,7 @@ const AppCache = {
   getDashboard(pid)              { return this.get('dash_' + pid); },
   setDashboard(pid, data, ver)   { return this.set('dash_' + pid, data, ver); },
   invalidateDashboard(pid)       { this.invalidate('dash_' + pid); },
+  clearDashboard(pid)            { this.clear('dash_' + pid); },
 
   // ── History (per patient + date range) ───────────────────────
   // data: Row[]

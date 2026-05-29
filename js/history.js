@@ -257,12 +257,24 @@ function _buildHistRow(row) {
   const bagWeight = row.bagWeight !== '' && row.bagWeight !== null ? parseFloat(row.bagWeight) : null;
   const notes     = row.notes     ? escHtml(String(row.notes))     : '';
 
+  // Build detail line. In RTL (Hebrew) the order is reversed so the Hebrew-starting
+  // drained string anchors the right edge; each segment is wrapped in <bdi> so the
+  // browser's bidi algorithm isolates LTR bag names (e.g. "Extraneal") from the
+  // surrounding RTL text, preventing scrambled rendering.
+  const isRtl = currentLang === 'he';
   let detail = '';
   if (type !== 'fill' && bagWeight !== null && !isNaN(bagWeight)) {
     const drainedStr = t('hist.drained', { weight: bagWeight.toFixed(1) });
-    detail = bagType ? `${bagType} · ${drainedStr}` : drainedStr;
+    if (bagType) {
+      detail = isRtl
+        ? `<bdi>${drainedStr}</bdi> · <bdi>${bagType}</bdi>`
+        : `<bdi>${bagType}</bdi> · <bdi>${drainedStr}</bdi>`;
+    } else {
+      detail = drainedStr;
+    }
   } else if (bagType) {
-    detail = bagType;
+    // Fill-only row: just the bag name, isolated so LTR names render correctly in RTL
+    detail = `<bdi>${bagType}</bdi>`;
   }
 
   const color      = _bagColorForType(row.bagType);

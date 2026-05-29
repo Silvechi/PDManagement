@@ -344,7 +344,7 @@ const STRINGS = {
     'hist.drain_fill':        'ניקוז ומילוי',
     'hist.drain':             'ניקוז בלבד',
     'hist.fill':              'מילוי בלבד',
-    'hist.drained':           '{weight} kg נוקז',
+    'hist.drained':           'נוקז {weight} ק"ג',
     'hist.email_btn':         'שלח דוח',
     'hist.email_title':       'שליחת דוח',
     'hist.email_range':       'תקופה',

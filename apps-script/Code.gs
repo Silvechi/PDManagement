@@ -38,50 +38,98 @@ var HEADERS = {
 function doGet(e) {
   var action = e.parameter.action;
   try {
-    // Public actions — no approved token required
-    if (action === 'validateToken') return jsonResponse(validateToken(e.parameter.token));
-    if (action === 'touchToken')    return jsonResponse(touchToken(e.parameter.token));
-    // Protected actions — readonly tokens allowed on GET
+    // Public actions — no token required; light rate limit to prevent probe floods
+    if (action === 'validateToken') {
+      if (isRateLimited('pub_vtok'))  return jsonResponse({ status: 'unknown' });
+      return jsonResponse(validateToken(e.parameter.token));
+    }
+    if (action === 'touchToken') {
+      if (isRateLimited('pub_touch')) return jsonResponse({ success: false });
+      return jsonResponse(touchToken(e.parameter.token));
+    }
+    // Protected actions — auth + per-token rate limit; readonly tokens allowed
     checkToken(e.parameter.token, true);
+    if (isRateLimited(String(e.parameter.token).slice(-8))) {
+      return jsonResponse({ error: 'Rate limit exceeded' });
+    }
     if (action === 'getDashboard')   return jsonResponse(getDashboard(e.parameter.patientId));
     if (action === 'getHistory')     return jsonResponse(getHistory(e.parameter.patientId, e.parameter.from, e.parameter.to));
     if (action === 'getConfig')      return jsonResponse(getConfig());
     if (action === 'getPatients')    return jsonResponse(getPatients());
     if (action === 'getDataVersion') return jsonResponse(getDataVersion());
     if (action === 'getRecipients')  return jsonResponse(getRecipients());
-    return jsonResponse({ error: 'Unknown GET action: ' + action });
+    return jsonResponse({ error: 'Unknown action' }); // L1: don't echo action name
   } catch (err) {
-    return jsonResponse({ error: err.message });
+    var msg = err.message === 'Unauthorized' ? 'Unauthorized' : 'Internal error';
+    return jsonResponse({ error: msg });
   }
 }
 
 function doPost(e) {
-  var body;
-  try {
-    body = JSON.parse(e.postData.contents);
-  } catch (err) {
-    return jsonResponse({ error: 'Invalid JSON body: ' + err.message });
+  // 1. Null guard + body size ceiling — reject oversized payloads before any processing
+  var raw = (e.postData && e.postData.contents) || '{}';
+  if (raw.length > 20000) return jsonResponse({ error: 'Request too large' });
+
+  // 2. Parse JSON — never echo parse error details to caller
+  var body = {};
+  try { body = JSON.parse(raw); } catch (_) {
+    return jsonResponse({ error: 'Invalid request' });
   }
-  var action = body.action;
+
+  var action = body.action || '';
+
   try {
-    // Public actions — no approved token required
-    if (action === 'loginOrRegister') return jsonResponse(loginOrRegister(body.label, body.passwordHash, body.token));
-    // Read-only POST actions (no data modification — readonly tokens allowed)
-    if (action === 'getHistoryReportHtml') {
-      checkToken(body.token, true);
-      return jsonResponse(getHistoryReportHtml(body));
+    // 3. Public action — rate-limited even without a token
+    if (action === 'loginOrRegister') {
+      if (isRateLimited('pub_reg')) return jsonResponse({ error: 'Rate limit exceeded' });
+      // loginOrRegister uses return { error: ... } for validation failures (not throw) so
+      // validation messages reach the client cleanly without going through the catch below.
+      return jsonResponse(loginOrRegister(body.label, body.passwordHash, body.token));
     }
-    // Write actions — full-access tokens only
-    checkToken(body.token);
-    if (action === 'logMeasurement')   return jsonResponse(logMeasurement(body));
-    if (action === 'updateInventory')  return jsonResponse(updateInventory(body));
-    if (action === 'addPatient')       return jsonResponse(addPatient(body));
-    if (action === 'editPatient')      return jsonResponse(editPatient(body));
-    if (action === 'savePreferences')  return jsonResponse(savePreferences(body));
-    if (action === 'sendHistoryEmail') return jsonResponse(sendHistoryEmail(body));
-    return jsonResponse({ error: 'Unknown POST action: ' + action });
+
+    // 4. Auth gate — accepts approved AND readonly tokens for read-only POSTs
+    checkToken(body.token, true);
+
+    // 5. Per-token rate limit (GET and POST share one counter per token)
+    if (isRateLimited(String(body.token).slice(-8))) {
+      return jsonResponse({ error: 'Rate limit exceeded' });
+    }
+
+    // 6. Read-only POST actions — readonly tokens allowed
+    if (action === 'getHistoryReportHtml') return jsonResponse(getHistoryReportHtml(body));
+
+    // 7. Write actions — re-check to reject readonly tokens
+    if (action === 'logMeasurement') {
+      checkToken(body.token, false);
+      return jsonResponse(logMeasurement(body));
+    }
+    if (action === 'updateInventory') {
+      checkToken(body.token, false);
+      return jsonResponse(updateInventory(body));
+    }
+    if (action === 'addPatient') {
+      checkToken(body.token, false);
+      return jsonResponse(addPatient(body));
+    }
+    if (action === 'editPatient') {
+      checkToken(body.token, false);
+      return jsonResponse(editPatient(body));
+    }
+    if (action === 'savePreferences') {
+      // Readonly tokens may update their own display preferences (theme/language/size)
+      return jsonResponse(savePreferences(body));
+    }
+    if (action === 'sendHistoryEmail') {
+      checkToken(body.token, false);
+      return jsonResponse(sendHistoryEmail(body));
+    }
+
+    return jsonResponse({ error: 'Unknown action' });
+
   } catch (err) {
-    return jsonResponse({ error: err.message });
+    // Only echo the known-safe auth string; all other errors → generic message
+    var msg = err.message === 'Unauthorized' ? 'Unauthorized' : 'Internal error';
+    return jsonResponse({ error: msg });
   }
 }
 
@@ -90,33 +138,64 @@ function doPost(e) {
 // ============================================================
 
 function logMeasurement(data) {
-  var sheet = getSheet(TAB.MEASUREMENTS);
-  sheet.appendRow([
-    data.date,
-    data.time,
-    parseFloat(data.weight)      || '',
-    parseInt(data.bpSystolic)    || '',
-    parseInt(data.bpDiastolic)   || '',
-    parseFloat(data.bagWeight)   || '',
-    data.notes                   || '',
-    data.bagType                 || '',
-    data.measurementType         || '',
-    data.patientId               || '',
-    parseFloat(data.fillVolume)  || '',
-    data.token                   || ''
-  ]);
-  _touchDataLastUpdated();
+  // M6: validate measurementType against whitelist — use return not throw (see C4)
+  var VALID_MEAS_TYPES = ['drain', 'fill', 'drain_fill', 'weight', 'bp'];
+  var measType = String(data.measurementType || '');
+  if (VALID_MEAS_TYPES.indexOf(measType) === -1) {
+    return { error: 'Invalid measurement type' };
+  }
+
+  var sheet    = getSheet(TAB.MEASUREMENTS);
+  var docLock  = LockService.getDocumentLock();
+  var acquired = false;
+  try {
+    docLock.waitForLock(10000);
+    acquired = true;
+    sheet.appendRow([
+      sanitiseForSheet(String(data.date            || '').slice(0, 30)),
+      sanitiseForSheet(String(data.time            || '').slice(0, 15)),
+      parseFloat(data.weight)      || '',
+      parseInt(data.bpSystolic)    || '',
+      parseInt(data.bpDiastolic)   || '',
+      parseFloat(data.bagWeight)   || '',
+      sanitiseForSheet(String(data.notes           || '').slice(0, 500)),
+      sanitiseForSheet(String(data.bagType         || '').slice(0, 50)),
+      measType,
+      sanitiseForSheet(String(data.patientId       || '').slice(0, 50)),
+      parseFloat(data.fillVolume)  || '',
+      sanitiseForSheet(String(data.token           || '').slice(0, 50))
+    ]);
+    SpreadsheetApp.flush();
+    _touchDataLastUpdated(); // must be called inside the lock — it writes to Config sheet
+  } finally {
+    if (acquired) docLock.releaseLock();
+  }
   return { success: true, message: 'Measurement logged.' };
 }
 
 function updateInventory(data) {
   var sheet    = getSheet(TAB.INVENTORY);
-  var datetime = data.datetime || data.date || '';
-  var items    = data.items || [];
-  items.forEach(function(item) {
-    sheet.appendRow([datetime, item.name, parseInt(item.count) || 0, data.patientId || '', data.token || '']);
-  });
-  _touchDataLastUpdated();
+  var docLock  = LockService.getDocumentLock();
+  var acquired = false;
+  try {
+    docLock.waitForLock(10000);
+    acquired = true;
+    var items    = Array.isArray(data.items) ? data.items : [];
+    var datetime = sanitiseForSheet(String(data.datetime || data.date || '').slice(0, 30));
+    items.forEach(function(item) {
+      sheet.appendRow([
+        datetime,
+        sanitiseForSheet(String(item.name      || '').slice(0, 100)),
+        parseInt(item.count) || 0,
+        sanitiseForSheet(String(data.patientId || '').slice(0, 50)),
+        sanitiseForSheet(String(data.token     || '').slice(0, 50))
+      ]);
+    });
+    SpreadsheetApp.flush();
+    _touchDataLastUpdated();
+  } finally {
+    if (acquired) docLock.releaseLock();
+  }
   return { success: true, message: 'Inventory updated.' };
 }
 
@@ -469,10 +548,10 @@ function setupSheet() {
 // ============================================================
 
 function validateToken(token) {
-  if (!token) return { status: 'unknown' };
+  if (!token || String(token).length > 100) return { status: 'unknown' }; // L6: length guard
   var sheet = ss().getSheetByName(TAB.TOKENS);
   if (!sheet || sheet.getLastRow() <= 1) return { status: 'unknown' };
-  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues();
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues(); // C5: was 9
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0]) === String(token)) {
       var status = String(rows[i][2]).toLowerCase();
@@ -490,51 +569,60 @@ function validateToken(token) {
 }
 
 function loginOrRegister(label, passwordHash, newUUID) {
-  if (!label)        throw new Error('Label is required');
-  if (!passwordHash) throw new Error('Password is required');
-  if (!newUUID)      throw new Error('No token provided');
-  if (String(newUUID).length > 100) throw new Error('Invalid token');
+  // C4: use return not throw so validation errors reach the client without going through doPost catch
+  if (!label || !passwordHash || !newUUID) return { error: 'Invalid request' };
+  if (String(newUUID).length > 100)        return { error: 'Invalid request' };
 
   var sheet = ss().getSheetByName(TAB.TOKENS);
-  if (!sheet) throw new Error('Tokens sheet not found. Run setupSheet() first.');
+  if (!sheet) return { error: 'Invalid request' };
 
   var tz  = Session.getScriptTimeZone();
   var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
 
-  if (sheet.getLastRow() > 1) {
-    var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues();
-    for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i][1]) === String(label) && String(rows[i][5]) === String(passwordHash)) {
-        var status = String(rows[i][2]).toLowerCase();
-        if (status === 'approved') {
-          sheet.getRange(i + 2, 5).setValue(now);
-          return {
-            restored:        true,
-            token:           String(rows[i][0]),
-            status:          'approved',
-            readonly:        false,
-            theme:           rows[i][7] ? String(rows[i][7]) : '',
-            language:        rows[i][8] ? String(rows[i][8]) : '',
-            textSize:        rows[i][9] ? String(rows[i][9]) : '',
-            activePatientId: rows[i][6] ? String(rows[i][6]) : ''
-          };
+  var docLock  = LockService.getDocumentLock();
+  var acquired = false;
+  try {
+    docLock.waitForLock(10000);
+    acquired = true;
+
+    if (sheet.getLastRow() > 1) {
+      var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues(); // C5: was 9
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i][1]) === String(label) && String(rows[i][5]) === String(passwordHash)) {
+          var status = String(rows[i][2]).toLowerCase();
+          if (status === 'approved') {
+            sheet.getRange(i + 2, 5).setValue(now);
+            return {
+              restored:        true,
+              token:           String(rows[i][0]),
+              status:          'approved',
+              readonly:        false,
+              theme:           rows[i][7] ? String(rows[i][7]) : '',
+              language:        rows[i][8] ? String(rows[i][8]) : '',
+              textSize:        rows[i][9] ? String(rows[i][9]) : '',
+              activePatientId: rows[i][6] ? String(rows[i][6]) : ''
+            };
+          }
+          if (status === 'revoked') {
+            return { restored: false, status: 'revoked' };
+          }
+          // pending — return existing token so the user can poll for approval
+          return { restored: false, status: 'pending', token: String(rows[i][0]) };
         }
-        if (status === 'revoked') {
-          return { restored: false, status: 'revoked' };
-        }
-        // pending — return existing token so the user can poll for approval
-        return { restored: false, status: 'pending', token: String(rows[i][0]) };
       }
     }
-  }
 
-  // No label+password match — register as new pending device
-  sheet.appendRow([newUUID, label, 'pending', now, '', passwordHash, '', '', '']);
-  return { restored: false, status: 'pending', token: newUUID };
+    // No label+password match — register as new pending device
+    sheet.appendRow([newUUID, label, 'pending', now, '', passwordHash, '', '', '']);
+    return { restored: false, status: 'pending', token: newUUID };
+
+  } finally {
+    if (acquired) docLock.releaseLock();
+  }
 }
 
 function touchToken(token) {
-  if (!token) return { success: false };
+  if (!token || String(token).length > 100) return { success: false }; // L6: length guard
   var sheet = ss().getSheetByName(TAB.TOKENS);
   if (!sheet || sheet.getLastRow() <= 1) return { success: false };
   var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
@@ -638,35 +726,61 @@ function getPatients() {
 }
 
 function addPatient(data) {
-  if (!data.name) throw new Error('Name is required');
-  var sheet = ss().getSheetByName(TAB.PATIENTS);
-  if (!sheet) throw new Error('Patients sheet not found. Run setupSheet() first.');
-  var tz        = Session.getScriptTimeZone();
-  var now       = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  if (!data.name) return { error: 'Name is required' };
+  var sheet = getSheet(TAB.PATIENTS);
+  var docLock  = LockService.getDocumentLock();
+  var acquired = false;
   var patientId = Utilities.getUuid();
-  sheet.appendRow([patientId, data.name, data.dob || '', data.comment || '', 'TRUE', now]);
+  try {
+    docLock.waitForLock(10000);
+    acquired = true;
+    var tz  = Session.getScriptTimeZone();
+    var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+    sheet.appendRow([
+      patientId,
+      sanitiseForSheet(String(data.name    || '').slice(0, 100)),
+      sanitiseForSheet(String(data.dob     || '').slice(0, 15)),
+      sanitiseForSheet(String(data.comment || '').slice(0, 500)),
+      'TRUE',
+      now
+    ]);
+    SpreadsheetApp.flush();
+    _touchDataLastUpdated();
+  } finally {
+    if (acquired) docLock.releaseLock();
+  }
   return { success: true, patientId: patientId };
 }
 
 function editPatient(data) {
-  if (!data.patientId) throw new Error('patientId required');
-  var sheet = ss().getSheetByName(TAB.PATIENTS);
-  if (!sheet || sheet.getLastRow() <= 1) throw new Error('Patient not found');
-  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
-  for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(data.patientId)) {
-      var tz  = Session.getScriptTimeZone();
-      var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
-      var r   = i + 2;
-      if (data.name    !== undefined) sheet.getRange(r, 2).setValue(data.name);
-      if (data.dob     !== undefined) sheet.getRange(r, 3).setValue(data.dob);
-      if (data.comment !== undefined) sheet.getRange(r, 4).setValue(data.comment);
-      if (data.active  !== undefined) sheet.getRange(r, 5).setValue(data.active ? 'TRUE' : 'FALSE');
-      sheet.getRange(r, 6).setValue(now);
-      return { success: true };
+  if (!data.patientId) return { error: 'patientId required' };
+  var sheet    = getSheet(TAB.PATIENTS);
+  var docLock  = LockService.getDocumentLock();
+  var acquired = false;
+  try {
+    docLock.waitForLock(10000);
+    acquired = true;
+    // Read rows inside the lock to prevent TOCTOU: concurrent insert/delete shifts row indices
+    if (sheet.getLastRow() <= 1) return { error: 'Patient not found' };
+    var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    var r = -1;
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(data.patientId)) { r = i + 2; break; }
     }
+    if (r === -1) return { error: 'Patient not found' }; // H4: don't leak patientId
+    var tz  = Session.getScriptTimeZone();
+    var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+    if (data.name    !== undefined) sheet.getRange(r, 2).setValue(sanitiseForSheet(String(data.name).slice(0, 100)));
+    if (data.dob     !== undefined) sheet.getRange(r, 3).setValue(sanitiseForSheet(String(data.dob).slice(0, 15)));
+    if (data.comment !== undefined) sheet.getRange(r, 4).setValue(sanitiseForSheet(String(data.comment).slice(0, 500)));
+    if (data.active  !== undefined) sheet.getRange(r, 5).setValue(data.active === true || data.active === 'true' ? 'TRUE' : 'FALSE');
+    sheet.getRange(r, 6).setValue(now);
+    SpreadsheetApp.flush();
+    _touchDataLastUpdated();
+    return { success: true };
+  } finally {
+    if (acquired) docLock.releaseLock();
   }
-  throw new Error('Patient not found: ' + data.patientId);
 }
 
 function _getPatientName(patientId) {
@@ -1089,6 +1203,62 @@ function _buildEmailCsv(patientName, from, to, exchanges, weights, bpRows) {
 
   var csv = '﻿' + lines.join('\r\n'); // BOM for Excel UTF-8 compatibility
   return Utilities.newBlob(csv, 'text/csv', 'PD_Report_' + from + '_to_' + to + '.csv');
+}
+
+// ============================================================
+// Security helpers
+// ============================================================
+
+// C1: Prevent formula injection — Google Sheets evaluates any cell starting with = + - @
+// as a formula. Prefix with an apostrophe to force plain-text treatment.
+// Numeric fields (weight, bp, etc.) coerced via parseFloat/parseInt are already safe.
+// NOTE: The leading apostrophe is NOT returned when reading via getValue() — no read-back issue.
+function sanitiseForSheet(value) {
+  var s = String(value === null || value === undefined ? '' : value);
+  if (s.length > 0 && '=+-@'.indexOf(s[0]) !== -1) {
+    return "'" + s;
+  }
+  return s;
+}
+
+// Rate limit: max 30 requests per 60-second idle window (activity-based, not fixed-window).
+// Also enforces a per-day ceiling of 2,000 req/token/day to protect the 20,000 req/day GAS quota.
+//
+// Fails OPEN (allows the request) if:
+//   (a) Script lock cannot be acquired within 3 seconds (LockTimeoutException), OR
+//   (b) CacheService evicts a counter entry (100 KB total cache limit).
+// Both are acceptable trade-offs: the alternative is crashing the caller.
+//
+// The acquired flag prevents releaseLock() from throwing when waitForLock() failed.
+// Per GAS docs, releaseLock() on a lock you don't hold throws — without the guard
+// that exception would propagate from finally and crash the function instead of returning false.
+function isRateLimited(tokenSuffix) {
+  var key      = 'rl_'     + tokenSuffix;
+  var dayKey   = 'rl_day_' + tokenSuffix;
+  var cache    = CacheService.getScriptCache();
+  var lock     = LockService.getScriptLock();
+  var limited  = false;
+  var acquired = false;
+  try {
+    lock.waitForLock(3000);
+    acquired = true;
+    var calls    = parseInt(cache.get(key)    || '0', 10);
+    var dayCalls = parseInt(cache.get(dayKey) || '0', 10);
+    if (calls >= 30) {
+      limited = true; // per-minute burst limit
+    } else if (dayCalls >= 2000) {
+      limited = true; // per-day quota protection
+    } else {
+      // Both checks passed — increment both counters atomically under the same lock
+      cache.put(key,    String(calls    + 1), 60);    // 60s activity window (sliding)
+      cache.put(dayKey, String(dayCalls + 1), 86400); // 86400s activity window (sliding)
+    }
+  } catch (_) {
+    limited = false; // fail open — never crash the caller for a rate limit check
+  } finally {
+    if (acquired) lock.releaseLock(); // C7: only release if we actually acquired it
+  }
+  return limited;
 }
 
 // Minimal HTML-entity escaper for email body construction (server-side, no DOM available)

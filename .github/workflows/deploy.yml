@@ -18,20 +18,25 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
+      # M1: Use env vars + double-quoted JS strings to prevent single-quote injection
+      # and printf %s format-specifier issues with secret values.
       - name: Write config.js from secrets
+        env:
+          SCRIPT_URL:   ${{ secrets.APPS_SCRIPT_URL }}
+          SCRIPT_TOKEN: ${{ secrets.APPS_SCRIPT_TOKEN }}
         run: |
-          cat > js/config.js <<'EOF'
-          window.APPS_SCRIPT_URL   = '${{ secrets.APPS_SCRIPT_URL }}';
-          window.APPS_SCRIPT_TOKEN = '${{ secrets.APPS_SCRIPT_TOKEN }}';
-          EOF
+          cat > js/config.js << ENDOFCONFIG
+          window.APPS_SCRIPT_URL   = "${SCRIPT_URL}";
+          window.APPS_SCRIPT_TOKEN = "${SCRIPT_TOKEN}";
+          ENDOFCONFIG
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3.0.1
         with:
           path: .
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e  # v4.0.5

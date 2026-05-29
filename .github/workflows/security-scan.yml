@@ -1,0 +1,45 @@
+name: Security Scan
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly Monday 03:00 UTC
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 0  # full git history required for secret scanning
+
+      - name: Detect secrets (Gitleaks)
+        uses: gitleaks/gitleaks-action@e6dab246340401bf53eec993b8f05aebe80ac636  # v2.3.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for hardcoded Apps Script URLs
+        run: |
+          if grep -rE "script\.google\.com/macros/s/[A-Za-z0-9_-]{20,}" \
+            --include="*.js" --include="*.html" \
+            --exclude="*.example" \
+            --exclude-dir=".git" \
+            .; then
+            echo "ERROR: Hardcoded Apps Script URL found in source!"
+            exit 1
+          fi
+          echo "OK: No hardcoded Apps Script URLs detected"
+
+      - name: Check for hardcoded tokens or API keys
+        run: |
+          if grep -rE "(APPS_SCRIPT_TOKEN|device[_-]?token)\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,}" \
+            --include="*.js" --include="*.html" \
+            --exclude="*.example" \
+            --exclude-dir=".git" \
+            .; then
+            echo "ERROR: Possible hardcoded secret found!"
+            exit 1
+          fi
+          echo "OK: No hardcoded secrets detected"

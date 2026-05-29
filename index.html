@@ -9,6 +9,14 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="pwa-icon.svg">
   <title>PD Tracker</title>
+  <!-- H5/C6: Content Security Policy — blocks external script injection and limits connect-src.
+       script-src includes 'unsafe-inline' because the app uses onclick= in innerHTML (Option A).
+       connect-src must include both script.google.com AND script.googleusercontent.com because
+       GAS /exec requests redirect to *.googleusercontent.com; CSP is enforced on the redirect. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; frame-ancestors 'none';">
+  <!-- L5: frame-busting — frame-ancestors in <meta> CSP is silently ignored per spec;
+       this JS guard is the only effective clickjacking defence on GitHub Pages. -->
+  <script>if (window.self !== window.top) { window.top.location = window.self.location; }</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">

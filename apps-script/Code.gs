@@ -15,7 +15,8 @@ var TAB = {
   CONFIG:       'Config',
   TOKENS:       'Tokens',
   PATIENTS:     'Patients',
-  RECIPIENTS:   'Recipients'
+  RECIPIENTS:   'Recipients',
+  AUDIT_LOG:    'AuditLog'
 };
 
 var HEADERS = {
@@ -24,7 +25,8 @@ var HEADERS = {
   Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName', 'maxHours', 'reorderDays', 'displayNameHe', 'valueHe', 'descriptionHe'],
   Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used', 'PasswordHash', 'ActivePatientID', 'Theme', 'Language', 'TextSize'],
   Patients:           ['PatientID', 'Name', 'DOB', 'Comment', 'Active', 'LastUpdated'],
-  Recipients:         ['Name', 'Email', 'Active']
+  Recipients:         ['Name', 'Email', 'Active'],
+  AuditLog:           ['Timestamp', 'Event', 'Label', 'Detail']
 };
 
 // CONFIG_DEFAULTS is defined in Config.defaults.gs (gitignored).
@@ -122,6 +124,10 @@ function doPost(e) {
     if (action === 'sendHistoryEmail') {
       checkToken(body.token, false);
       return jsonResponse(sendHistoryEmail(body));
+    }
+    if (action === 'revokeToken') {
+      checkToken(body.token, false);
+      return jsonResponse(revokeToken(body));
     }
 
     return jsonResponse({ error: 'Unknown action' });
@@ -540,6 +546,16 @@ function setupSheet() {
     });
   }
 
+  // AuditLog sheet: freeze header, column widths
+  var auditSheet = ss().getSheetByName(TAB.AUDIT_LOG);
+  if (auditSheet) {
+    auditSheet.setFrozenRows(1);
+    auditSheet.setColumnWidth(1, 160); // Timestamp
+    auditSheet.setColumnWidth(2, 120); // Event
+    auditSheet.setColumnWidth(3, 180); // Label
+    auditSheet.setColumnWidth(4, 260); // Detail
+  }
+
   SpreadsheetApp.getUi().alert('Setup complete. All tabs are ready.');
 }
 
@@ -588,7 +604,14 @@ function loginOrRegister(label, passwordHash, newUUID) {
     if (sheet.getLastRow() > 1) {
       var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues(); // C5: was 9
       for (var i = 0; i < rows.length; i++) {
-        if (String(rows[i][1]) === String(label) && String(rows[i][5]) === String(passwordHash)) {
+        if (String(rows[i][1]) === String(label)) {
+          // Label found — check password
+          if (String(rows[i][5]) !== String(passwordHash)) {
+            // L2: wrong password for an existing label — log and reject
+            // Returning 'Invalid request' (not 'wrong password') avoids confirming label exists
+            _appendAuditLog('login_fail', label, 'wrong_password');
+            return { error: 'Invalid request' };
+          }
           var status = String(rows[i][2]).toLowerCase();
           if (status === 'approved') {
             sheet.getRange(i + 2, 5).setValue(now);
@@ -612,7 +635,7 @@ function loginOrRegister(label, passwordHash, newUUID) {
       }
     }
 
-    // No label+password match — register as new pending device
+    // No matching label — register as new pending device
     sheet.appendRow([newUUID, label, 'pending', now, '', passwordHash, '', '', '']);
     return { restored: false, status: 'pending', token: newUUID };
 
@@ -1203,6 +1226,64 @@ function _buildEmailCsv(patientName, from, to, exchanges, weights, bpRows) {
 
   var csv = '﻿' + lines.join('\r\n'); // BOM for Excel UTF-8 compatibility
   return Utilities.newBlob(csv, 'text/csv', 'PD_Report_' + from + '_to_' + to + '.csv');
+}
+
+// ============================================================
+// Token revocation (M8)
+// ============================================================
+
+// Allows an approved token holder to revoke any device by its label.
+// Use case: caregiver's phone is lost — owner revokes it from their own device.
+// Requires a full-access (approved) token; readonly tokens cannot revoke.
+function revokeToken(data) {
+  if (!data.targetLabel) return { error: 'targetLabel required' };
+  var sheet = ss().getSheetByName(TAB.TOKENS);
+  if (!sheet || sheet.getLastRow() <= 1) return { error: 'Token not found' };
+  var docLock  = LockService.getDocumentLock();
+  var acquired = false;
+  try {
+    docLock.waitForLock(10000);
+    acquired = true;
+    var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][1]) === String(data.targetLabel)) {
+        if (String(rows[i][2]).toLowerCase() === 'revoked') {
+          return { success: true, alreadyRevoked: true }; // idempotent
+        }
+        sheet.getRange(i + 2, 3).setValue('revoked');
+        SpreadsheetApp.flush();
+        _appendAuditLog('token_revoked', String(data.targetLabel), 'revoked by approved token');
+        return { success: true };
+      }
+    }
+    return { error: 'Token not found' };
+  } finally {
+    if (acquired) docLock.releaseLock();
+  }
+}
+
+// ============================================================
+// Audit logging (L2)
+// ============================================================
+
+// Writes a single row to the AuditLog sheet.
+// Must never crash the caller — all errors are silently swallowed.
+// No lock needed: appendRow is atomic at the row level.
+// Events: 'login_fail', 'token_revoked'
+function _appendAuditLog(event, label, detail) {
+  try {
+    var sheet = ss().getSheetByName(TAB.AUDIT_LOG);
+    if (!sheet) return; // tab not created yet — silently skip
+    var tz  = Session.getScriptTimeZone();
+    var now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+    sheet.appendRow([now,
+      sanitiseForSheet(String(event  || '')),
+      sanitiseForSheet(String(label  || '')),
+      sanitiseForSheet(String(detail || ''))
+    ]);
+  } catch (_) {
+    // Audit log writes must never propagate exceptions to the caller
+  }
 }
 
 // ============================================================

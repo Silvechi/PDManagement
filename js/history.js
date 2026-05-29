@@ -9,6 +9,8 @@ const MAIL_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18
   <polyline points="2,4 12,13 22,4"/>
 </svg>`;
 
+const HIST_REFRESH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.36-3.36L23 10M1 14l5.13 4.36A9 9 0 0020.49 15"/></svg>`;
+
 const HIST_PRESETS = [
   { label: '1W', days: 7  },
   { label: '1M', days: 30 },
@@ -41,8 +43,11 @@ function _histBuildShell(container) {
           <h1 class="page-title">${t('hist.title')}</h1>
           <div class="page-sub">${t('hist.sub')}</div>
         </div>
-        <button class="ghost-btn hist-email-btn" onclick="_histShowEmailScreen(document.getElementById('screen-container'))"
-                title="${t('hist.email_btn')}" aria-label="${t('hist.email_btn')}">${MAIL_ICON}</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="icon-btn" id="hist-refresh-btn" onclick="refreshHistory()" title="Refresh">${HIST_REFRESH_ICON}</button>
+          <button class="ghost-btn hist-email-btn" onclick="_histShowEmailScreen(document.getElementById('screen-container'))"
+                  title="${t('hist.email_btn')}" aria-label="${t('hist.email_btn')}">${MAIL_ICON}</button>
+        </div>
       </div>
       <div class="hist-filter">
         <div class="hist-filter-top">
@@ -83,6 +88,24 @@ async function _histEmailBack(container) {
   _histRows = null;
   _histBuildShell(container);
   await _fetchAndRenderHist();
+}
+
+function _histSetRefreshing(on) {
+  const btn = document.getElementById('hist-refresh-btn');
+  if (btn) btn.classList.toggle('spinning', on);
+}
+
+async function refreshHistory() {
+  const patientId = getActivePatientId();
+  AppCache.clearHistory(patientId, _histFrom, _histTo);
+  _histRows = null;
+  _histSetRefreshing(true);
+  const loading = document.getElementById('hist-loading');
+  const content = document.getElementById('hist-content');
+  if (content) content.innerHTML = '';
+  if (loading) { loading.textContent = t('common.loading'); loading.style.display = ''; }
+  await _fetchAndRenderHist();
+  _histSetRefreshing(false);
 }
 
 function _renderHistChips() {

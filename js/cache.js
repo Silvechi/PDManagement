@@ -84,4 +84,5 @@ const AppCache = {
   // data: Row[]
   getHistory(pid, from, to)            { return this.get('hist_' + pid + '_' + from + '_' + to); },
   setHistory(pid, from, to, rows, ver) { return this.set('hist_' + pid + '_' + from + '_' + to, rows, ver); },
+  clearHistory(pid, from, to)          { this.clear('hist_' + pid + '_' + from + '_' + to); },
 };

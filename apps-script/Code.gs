@@ -189,10 +189,12 @@ function updateInventory(data) {
     var items    = Array.isArray(data.items) ? data.items : [];
     var datetime = sanitiseForSheet(String(data.datetime || data.date || '').slice(0, 30));
     items.forEach(function(item) {
+      var count = parseInt(item.count) || 0;
+      if (count <= 0) return;  // skip zero-count items — nothing was used
       sheet.appendRow([
         datetime,
         sanitiseForSheet(String(item.name      || '').slice(0, 100)),
-        parseInt(item.count) || 0,
+        count,
         sanitiseForSheet(String(data.patientId || '').slice(0, 50)),
         sanitiseForSheet(String(data.token     || '').slice(0, 50))
       ]);

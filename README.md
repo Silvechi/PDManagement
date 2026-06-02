@@ -42,7 +42,7 @@ Access is controlled by per-device tokens rather than a single shared password:
 1. First visit → registration form → device generates a UUID token → GAS records it as `pending` in the **Tokens** sheet
 2. Owner opens the Tokens sheet and changes status to `approved`
 3. Device bookmarks `app-url/#token` → future visits validate automatically
-4. To revoke a device, change its status to `revoked` in the sheet
+4. To revoke a device: change its status to `revoked` in the Tokens sheet, or use **Settings → Users → Revoke** in the app (requires a full-access token)
 
 The token is stored in both `localStorage` (persists across sessions) and the URL fragment (acts as the bookmark). Both must be present; an attacker needs the specific bookmarked URL on the registered device.
 
@@ -104,30 +104,44 @@ PDManagement/
 
 ## Google Sheets structure
 
+All tabs are created automatically by `setupSheet()` — no manual tab creation needed.
+
 ### `Daily_Measurements`
-| Date | Time | Weight (kg) | BP Systolic | BP Diastolic | Bag Weight After Drainage (kg) | Notes | Bag Type | Measurement Type |
+| Date | Time | Weight (kg) | BP Systolic | BP Diastolic | Bag Weight After Drainage (kg) | Notes | Bag Type | Measurement Type | PatientID | Fill Volume (L) | DeviceToken |
 
 `Measurement Type` values: `drain`, `fill`, `drain_fill`, `weight`, `bp`
 
 ### `Inventory`
-| Date | Item Name | Count |
+| DateTime | Item Name | Count | PatientID | DeviceToken |
 
-*(Tall format — one row per item per save. Latest row per item wins.)*
+*(Tall format — one row per item per save. Zero-count items are not written. Latest row per item per patient wins.)*
 
 ### `Config`
-| Category | Key | Value | Description | isBag | active | color | displayName |
+| Category | Key | Value | Description | isBag | active | color | displayName | maxHours | reorderDays | displayNameHe | valueHe | descriptionHe |
 
 Config row categories:
-- `inventory` — supply items. `isBag=TRUE` marks solution bags; `active=FALSE` hides an item without deleting it; `color` is a hex code for the bag dot; `displayName` is the label shown in the UI (e.g. `2.27%`)
+- `inventory` — supply items. `isBag=TRUE` marks solution bags; `active=FALSE` hides an item; `color` is hex; `displayName` is the UI label; `maxHours` is the exchange overdue threshold (hours); `reorderDays` is the restock lead time (days)
 - `prep_items` — the pre-procedure checklist (Key = order number)
 - `prep_steps` — numbered procedure steps (Key = order number)
+- `meta` — system settings: `dataLastUpdated` (auto-written on every write), `maxExchangeHours` (global exchange time limit), `exportEmail`
 
 ### `Tokens`
-| Token | Label | Status | Created | Last Used |
+| Token | Label | Status | Created | Last Used | PasswordHash | ActivePatientID | Theme | Language | TextSize |
 
-Status values: `pending`, `approved`, `revoked`. Change `pending` → `approved` to grant a device access.
+Status values: `pending`, `approved`, `revoked`, `readonly`. Change `pending` → `approved` to grant a device access. Use `readonly` for caregiver/doctor view-only access.
 
-### `Dashboard` *(unused, kept for legacy)*
+### `Patients`
+| PatientID | Name | DOB | Comment | Active | LastUpdated |
+
+### `Recipients`
+| Name | Email | Active |
+
+Active = `TRUE`/`FALSE`. Only active rows appear in the send-report UI. Add email recipients here to allow sending history reports to them — arbitrary addresses not in this list are rejected server-side.
+
+### `AuditLog`
+| Timestamp | Event | Label | Detail |
+
+Written automatically on security events: `login_fail` (wrong password), `token_revoked`.
 
 ---
 
@@ -138,7 +152,7 @@ Status values: `pending`, `approved`, `revoked`. Change `pending` → `approved`
 1. Create a new Google Sheet
 2. Open **Extensions → Apps Script**
 3. Paste the contents of `apps-script/Code.gs`, save
-4. Run `setupSheet()` once — creates all five tabs with headers, populates Config with defaults, and adds the status dropdown to the Tokens tab
+4. Run `setupSheet()` once — creates all required tabs (Daily_Measurements, Inventory, Config, Tokens, Patients, Recipients, AuditLog) with headers, populates Config with defaults, and adds status dropdowns
 
 ### 2. Deploy as a Web App
 
@@ -173,22 +187,27 @@ Save the bookmark URL. This is the URL you (and any approved user) will use to o
 
 ## API endpoints
 
-All requests go to the single Apps Script Web App URL.
+All requests go to the single Apps Script Web App URL. Auth = "Readonly" means readonly tokens are accepted; "Full" means approved tokens only.
 
-| Method | `action` | Auth required | Behaviour |
+| Method | `action` | Auth | Behaviour |
 |---|---|---|---|
-| `GET` | `validateToken` | No | Check if a device token is approved/pending/revoked — returns `status`, `theme`, `language` |
-| `POST` | `loginOrRegister` | No | Register new device or restore existing one by label + password hash |
-| `GET` | `touchToken` | No | Update last-used timestamp for a token |
-| `GET` | `getDashboard` | Yes | Latest inventory + 7-day stats + last exchange |
-| `GET` | `getHistory` | Yes | Exchange rows filtered by `from`/`to` date params |
-| `GET` | `getConfig` | Yes | Prep items and procedure steps from Config tab |
-| `GET` | `getPatients` | Yes | Patient list with `version` for cache invalidation |
-| `POST` | `addPatient` | Yes | Add a new patient, returns generated `patientId` |
-| `POST` | `editPatient` | Yes | Update name/DOB/comment/active on an existing patient |
-| `POST` | `logMeasurement` | Yes | Append row to `Daily_Measurements` |
-| `POST` | `updateInventory` | Yes | Append rows to `Inventory` (one per item) |
-| `POST` | `savePreferences` | Yes | Save per-device preferences (theme, language) to Tokens sheet |
+| `GET` | `validateToken` | None | Check if a token is approved/pending/revoked — returns `status`, `theme`, `language`, `activePatientId` |
+| `POST` | `loginOrRegister` | None | Register new device or restore existing by label + password hash |
+| `GET` | `touchToken` | None | Update last-used timestamp for a token |
+| `GET` | `getDashboard` | Readonly | Latest inventory + 7-day stats + last exchange |
+| `GET` | `getHistory` | Readonly | Exchange rows filtered by `patientId`, `from`, `to` date params |
+| `GET` | `getConfig` | Readonly | Prep items and procedure steps from Config tab |
+| `GET` | `getPatients` | Readonly | Patient list with `version` for cache invalidation |
+| `GET` | `getDataVersion` | Readonly | Returns data version timestamp for polling cache invalidation |
+| `GET` | `getRecipients` | Readonly | Returns active recipients from Recipients sheet |
+| `POST` | `addPatient` | Full | Add a new patient, returns generated `patientId` |
+| `POST` | `editPatient` | Full | Update name/DOB/comment/active on an existing patient |
+| `POST` | `logMeasurement` | Full | Append row to `Daily_Measurements` |
+| `POST` | `updateInventory` | Full | Append rows to `Inventory` (one row per non-zero item) |
+| `POST` | `savePreferences` | Readonly | Save per-device preferences (theme, language, textSize) to Tokens sheet |
+| `POST` | `revokeToken` | Full | Revoke a device by label (e.g. lost phone) |
+| `POST` | `sendHistoryEmail` | Full | Generate and email history report (inline SVG charts + CSV attachment) to server-validated recipients |
+| `POST` | `getHistoryReportHtml` | Readonly | Return full printable HTML report — client opens in new tab, user prints to PDF |
 
 ---
 

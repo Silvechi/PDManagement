@@ -60,19 +60,20 @@ Mark the repo as a GitHub template (Settings → Template repository). Rewrite R
 - UF calculation (drained − filled) on dashboard (daily total) and history (per row)
 - New `Daily_Measurements` column for fill volume is already there but the UI doesn't expose it
 
-### #16 — Data export for doctor visits (CSV download + email)
+### #16 — Data export for doctor visits
 
-**Phase 1: CSV only.** PDF deferred but the UI must include a disabled format selector from the start.
+**Email delivery: ✓ Done (June 2026)**
 
-**Two delivery modes:**
-1. **Download to device** — client-side Blob from already-fetched history rows. No new API call, works offline.
-2. **Email** — `MailApp.sendEmail()` in GAS with CSV attachment. Email address comes from `meta | exportEmail` in Config (pre-filled, editable before send).
+`sendHistoryEmail` POST endpoint: reads history for patient + date range, generates inline SVG charts (weight trend, BP), builds HTML email body + CSV attachment, sends via `MailApp` to server-validated recipients from the `Recipients` sheet. Recipient list managed in the Recipients tab (Name / Email / Active=TRUE). In-app flow: History → envelope icon → checkbox list → Send button. Auto-navigates back on success.
 
-**Backend — new `emailExport` POST endpoint** reads history for the patient and date range, builds CSV, sends via `MailApp`.
+`getHistoryReportHtml` POST endpoint: returns full printable HTML with SVG charts + exchange table. Client opens in new tab; user prints to PDF (no GAS DocumentApp/Drive permissions needed).
 
-**Frontend — History screen:** "Export" button in header → modal with format selector, delivery mode, and confirm button. Date range is whatever is currently displayed.
+**Still pending:**
 
-**CSV columns:** `Date, Time, Type, Bag Type, Drain Weight (kg), Fill Volume (L), UF (L), BP Systolic, BP Diastolic, Weight (kg), Notes`
+- **Download to device** — client-side Blob from already-fetched history rows. No new API call, works offline.
+- **PDF via DocumentApp** — deferred; requires Drive permission. Print-to-PDF via browser is the current workaround.
+
+**Original plan divergence:** The implementation uses a server-managed `Recipients` sheet rather than a single `meta | exportEmail` config value. This provides multi-recipient support and server-side address validation (arbitrary email addresses are rejected).
 
 ### #17 — PWA (Progressive Web App) — install to home screen
 
@@ -220,6 +221,18 @@ Two one-liner accessibility rules added to `styles.css`:
 ---
 
 ## Done
+
+### ~~Token revocation endpoint (M8)~~ ✓ Done (May 2026)
+
+`revokeToken` POST endpoint: full-access tokens can revoke any device by label (e.g. lost phone). Idempotent — revoking an already-revoked token returns success. Writes an `AuditLog` entry (`token_revoked`). Accessible from the Settings → Users screen.
+
+---
+
+### ~~Audit logging (L2)~~ ✓ Done (May 2026)
+
+`_appendAuditLog` helper writes to the `AuditLog` tab. Currently logs: `login_fail` (wrong password for a known label — does not confirm the label exists to the caller), `token_revoked` (with revoking token's label). Silent — never propagates exceptions to the caller.
+
+---
 
 ### ~~#6 — Token visible in browser history + password-based recovery~~ ✓ Done (May 2026)
 

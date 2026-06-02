@@ -1,5 +1,8 @@
 # Schema Migration Plan
 
+> **STATUS: COMPLETE** — All steps below were implemented and deployed (May 2026).
+> This file is kept for reference only.
+
 Files touched: `apps-script/Code.gs`, `apps-script/Config.defaults.gs.example`
 Trigger: run `setupSheet()` once after all changes — sheet reset required (no real data).
 

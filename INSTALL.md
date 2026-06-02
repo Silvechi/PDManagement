@@ -25,17 +25,7 @@ This sheet is where all your data lives. The app reads and writes to it automati
 
 3. Click "Untitled spreadsheet" at the very top and type `PD Tracker`, then press Enter.
 
-4. You need **five tabs** at the bottom of the sheet. Right now you only have one called "Sheet1" — rename it and add the rest.
-
-   | Tab name | How to get there |
-   |---|---|
-   | `Daily_Measurements` | Right-click "Sheet1" → Rename → type the name → press Enter |
-   | `Inventory` | Click the **+** button bottom-left → rename the new tab |
-   | `Dashboard` | Click **+** again → rename |
-   | `Config` | Click **+** again → rename |
-   | `Tokens` | Click **+** again → rename |
-
-   > **The names are case-sensitive.** `Daily_Measurements` works; `daily_measurements` or `Daily Measurements` will not.
+   > Leave the default "Sheet1" tab as-is — the setup script in Step 2 will create all the required tabs automatically.
 
 ---
 
@@ -67,9 +57,9 @@ The backend is a small script that runs inside Google and handles saving/reading
    - Click **Go to PD Tracker (unsafe)**.
    - Click **Allow**.
 
-10. The script runs. After a few seconds, a green bar at the bottom says "Execution completed". Switch back to your Google Sheet — all five tabs now have column headers, the Config tab is pre-filled with default items, and the Tokens tab has a status dropdown in column C.
+10. The script runs. After a few seconds, a green bar at the bottom says "Execution completed". Switch back to your Google Sheet — all required tabs are now created with column headers (Daily_Measurements, Inventory, Config, Tokens, Patients, Recipients, AuditLog), the Config tab is pre-filled with default items, and the Tokens tab has a status dropdown in column C.
 
-    > If you get a red error bar instead, check that you cleared the editor completely before pasting and that all five tabs are named exactly as shown in Step 1.
+    > If you get a red error bar instead, check that you cleared the editor completely before pasting (Step 2 above).
 
 ---
 

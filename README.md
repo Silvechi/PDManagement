@@ -11,7 +11,7 @@ A web-based medical tracking platform for peritoneal dialysis patients. Tracks d
 | **Dashboard** | At-a-glance view: solution bag counts (colour-coded), 7-day weight trend sparkline, recent BP readings, time since last exchange. Low-stock alert banner. |
 | **Log** | Three toggled cards — Drainage (default), Weight, Blood Pressure — each independently submittable with scroll-wheel numeric pickers and auto-filled date/time. Shows time since last exchange. |
 | **Inventory** | Adjust supply counts with `+` / `−` buttons. Item list, low-stock thresholds, bag colours, and display names are all driven by the Config sheet. |
-| **History** | Chronological log of exchange entries (drain/fill). Configurable date range with from/to date pickers and 1W/1M/3M presets. Newest entries first. |
+| **History** | Chronological log of exchange entries (drain/fill). Configurable date range with from/to date pickers and 1W/1M/3M presets. Newest entries first. Envelope icon sends a history report (SVG charts + exchange table) to Recipients sheet addresses; "Open report" opens a printable HTML version for Print → PDF. |
 | **Prep** | Static reference: what to gather before the procedure and the procedure steps. Both read from the Config sheet. Tap any item to reveal a tooltip explanation. |
 | **Settings** | Light/dark theme toggle, EN/HE language switcher, active user display and user management. |
 
@@ -65,6 +65,9 @@ The token is stored in both `localStorage` (persists across sessions) and the UR
 ```
 PDManagement/
 ├── index.html                  App shell + screen router
+├── manifest.json               PWA manifest — app name, icons, display mode
+├── sw.js                       Service worker — caches app shell; data requests fall through to GAS
+├── pwa-icon.svg                App icon for home screen install
 ├── mockup-proposed.html        Design mockup reference (open in browser)
 ├── package.json                Dev dependencies (Playwright)
 ├── playwright.config.js        Test configuration
@@ -262,4 +265,4 @@ Tests mock the Apps Script API via `page.route()` — no real Google account is 
 
 | # | Issue | Priority |
 |---|---|---|
-| Bug #8 | Dashboard tab can't be re-tapped to refresh data | Low |
+| Bug #8 | Dashboard nav tab re-tap is a no-op (`navigateTo` returns early if already on the screen). The ↻ button in the dashboard header works as a workaround. | Low |

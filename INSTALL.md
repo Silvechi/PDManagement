@@ -243,7 +243,7 @@ The **Tokens** tab in your Google Sheet is the access control panel:
 | Action | How |
 |---|---|
 | **Approve a device** | Change status from `pending` → `approved` |
-| **Revoke a device** | Change status to `revoked` — the device will be blocked on next load |
+| **Revoke a device** | Change status to `revoked` in the Tokens sheet, or use **Settings → Users → Revoke** in the app (requires a full-access device) |
 | **Add a label** | Edit the Label column to identify the device (e.g. "Dad's iPad") |
 
 The **Last Used** column updates automatically each time an approved device opens the app.
@@ -296,3 +296,13 @@ Hard-refresh the app: **Ctrl+Shift+R** (Windows) or **Cmd+Shift+R** (Mac). Check
 ### The app shows the wrong date or time
 
 The app uses your device's local clock. Check your device's date/time settings.
+
+### The "Send report" screen shows no recipients
+
+Open the **Recipients** tab in your Google Sheet. Make sure at least one row exists with **Active** set to `TRUE`. If the tab doesn't exist, run `setupSheet()` again from the Apps Script editor to create it.
+
+### A history report email was sent but never arrived
+
+1. Check the spam folder — the email comes from the Google account that owns the script, not your own address.
+2. Consumer Gmail accounts can send at most 100 emails per day via `MailApp`. If the daily limit is reached, the send will fail silently. Try again the next day.
+3. Confirm the recipient's address in the **Recipients** tab is spelled correctly.

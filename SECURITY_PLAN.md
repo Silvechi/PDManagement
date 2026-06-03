@@ -1,6 +1,6 @@
 # PD Tracker — Security Plan
 
-> **Status:** Draft — for review and implementation  
+> **Status:** Implemented — all Critical/High/Medium items complete; owner actions O1/O2/O4 verified May 2026  
 > **Scope:** GitHub Pages frontend + Google Apps Script backend + Google Sheets storage  
 > **Auth pattern:** Pattern B — per-device UUID tokens (PDManagement pattern)  
 > **Data sensitivity:** Medical (peritoneal dialysis records, vitals, patient identifiers)
@@ -22,6 +22,8 @@ The PD Tracker has a well-conceived architecture (gitignored secrets, per-device
 ---
 
 ## 2. Findings
+
+> **Implementation note:** Code samples throughout this section use `getDocumentLock()` + `waitForLock()` as originally written. The live implementation uses `getScriptLock()` + `waitLock()` — `getDocumentLock()` is only available in container-bound scripts, and `waitForLock()` is not a valid GAS LockService method (`waitLock()` is). See commit e9535dc. The security behaviour is identical; only the API call names differ.
 
 ### 2.1 Critical
 
@@ -1016,13 +1018,13 @@ function isRateLimited(tokenSuffix) {
 | GAS handler | `editPatient` error does not leak patientId | High | ✅ Done H4 |
 | GitHub Pages | CSP `<meta>` present (at minimum with `'unsafe-inline'` — Option A) | High | ✅ Done H5 |
 | GitHub Actions | Gitleaks + URL scan; weekly schedule | High | ✅ Done H6 |
-| GAS deployment | Production uses versioned deployment (not HEAD/test URL) | Medium | ⬜ Verify O1 |
-| GAS deployment | Old deployments archived after URL rotation | Medium | ⬜ Verify O2 |
+| GAS deployment | Production uses versioned deployment (not HEAD/test URL) | Medium | ✅ Verified O1 (May 2026) |
+| GAS deployment | Old deployments archived after URL rotation | Medium | ✅ Verified O2 (May 2026) |
 | CI workflow | Secret injection uses double-quoted JS strings and env vars (not `printf`) | Medium | ✅ Done M1 |
 | GitHub Actions | All action references pinned to commit SHA, not mutable tags | Medium | ✅ Done M7 |
 | GAS handler | `measurementType` validated against whitelist using `return { error: ... }` not `throw` (avoids C4 UX regression) | Medium | ✅ Done M6 |
 | GAS handler | Per-day rate limit (2,000 req/token/day) included in `isRateLimited` | Medium | ✅ Done M10 |
-| Owner action | 2FA enabled on Google account that owns the spreadsheet | Medium | ⬜ Verify O4 |
+| Owner action | 2FA enabled on Google account that owns the spreadsheet | Medium | ✅ Verified O4 (May 2026) |
 | Git history | `git log --all -- "js/config.js"` returns no commits | Medium | ✅ Verified clean |
 | Git history | `git log --all -- "apps-script/Config.defaults.gs"` returns no commits | Medium | ✅ Verified clean |
 | GAS handler | `doGet` unknown action message does not echo action name | Low | ✅ Done L1 |

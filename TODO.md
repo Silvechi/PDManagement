@@ -75,13 +75,9 @@ Mark the repo as a GitHub template (Settings → Template repository). Rewrite R
 
 **Original plan divergence:** The implementation uses a server-managed `Recipients` sheet rather than a single `meta | exportEmail` config value. This provides multi-recipient support and server-side address validation (arbitrary email addresses are rejected).
 
-### #17 — PWA (Progressive Web App) — install to home screen
+### ~~#17 — PWA (Progressive Web App) — install to home screen~~ ✓ Done (May 2026)
 
-**Files needed:**
-- `manifest.json` — app name, icons, theme color, `display: "standalone"`
-- `sw.js` — service worker caching the app shell; network requests fall through to GAS
-
-**Effort:** Low for install-to-home-screen. Full offline data access requires a more complete service worker strategy.
+`manifest.json`, `sw.js`, and `pwa-icon.svg` added and wired into `index.html`. Provides "Add to Home Screen" on iOS and Android with standalone display. The service worker caches the app shell only — data requests still require network (GAS). Full offline data access (caching measurement history locally) was not implemented and remains a future option.
 
 ### #19 — Supply reorder reminder with lead time
 

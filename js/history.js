@@ -214,12 +214,15 @@ function _renderHistContent() {
     return;
   }
 
-  // Group by calendar date, newest first
+  // Group by calendar date, then sort each group by time (newest first)
   const groups = {};
   rows.forEach(row => {
     const key = _histDateKey(row.date);
     if (!groups[key]) groups[key] = [];
     groups[key].push(row);
+  });
+  Object.keys(groups).forEach(key => {
+    groups[key].sort((a, b) => _histTimeMinutes(b.time) - _histTimeMinutes(a.time));
   });
 
   content.innerHTML = Object.keys(groups)
@@ -299,6 +302,22 @@ function _histDateKey(dateVal) {
   const d = new Date(s);
   if (!isNaN(d)) return d.toISOString().slice(0, 10);
   return s;
+}
+
+function _histTimeMinutes(timeVal) {
+  if (!timeVal) return 0;
+  const s = String(timeVal);
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d)) return d.getUTCHours() * 60 + d.getUTCMinutes();
+  }
+  const parts = s.slice(0, 5).split(':');
+  if (parts.length >= 2) {
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
+  }
+  return 0;
 }
 
 function _histFmtTime(timeVal) {

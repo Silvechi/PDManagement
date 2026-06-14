@@ -322,6 +322,32 @@ function renderDashboardContent(data) {
 
     ${suppliesHtml}
 
+    ${data.lastCcpd ? `
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2 class="card-title">${t('dash.ccpd.title')}</h2>
+          <p class="card-sub">${timeAgo(data.lastCcpd.date, data.lastCcpd.time)}</p>
+        </div>
+        <button class="link" onclick="navigateTo('measurements','ccpd')">${t('common.log')}</button>
+      </div>
+      <div class="ccpd-summary">
+        <div class="ccpd-stat">
+          <div class="ccpd-stat-val">${data.lastCcpd.initialDrain}<span class="unit"> mL</span></div>
+          <div class="ccpd-stat-label">${t('dash.ccpd.initial_drain')}</div>
+        </div>
+        <div class="ccpd-stat">
+          <div class="ccpd-stat-val">${data.lastCcpd.ufVolume > 0 ? '+' : ''}${data.lastCcpd.ufVolume}<span class="unit"> mL</span></div>
+          <div class="ccpd-stat-label">${t('dash.ccpd.uf')}</div>
+        </div>
+        <div class="ccpd-stat">
+          <div class="ccpd-stat-val">${data.lastCcpd.avgDwell}<span class="unit"> min</span></div>
+          <div class="ccpd-stat-label">${t('dash.ccpd.dwell')}</div>
+        </div>
+      </div>
+    </section>
+    ` : ''}
+
     <div class="two-col">
       <section class="card">
         <div class="card-head">

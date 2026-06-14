@@ -20,7 +20,7 @@ var TAB = {
 };
 
 var HEADERS = {
-  Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type', 'PatientID', 'Fill Volume (L)', 'DeviceToken'],
+  Daily_Measurements: ['Date', 'Time', 'Weight (kg)', 'BP Systolic', 'BP Diastolic', 'Bag Weight After Drainage (kg)', 'Notes', 'Bag Type', 'Measurement Type', 'PatientID', 'Fill Volume (L)', 'DeviceToken', 'Initial Drain (mL)', 'UF Volume (mL)', 'Avg Dwell (min)'],
   Inventory:          ['DateTime', 'Item Name', 'Count', 'PatientID', 'DeviceToken'],
   Config:             ['Category', 'Key', 'Value', 'Description', 'isBag', 'active', 'color', 'displayName', 'maxHours', 'reorderDays', 'displayNameHe', 'valueHe', 'descriptionHe'],
   Tokens:             ['Token', 'Label', 'Status', 'Created', 'Last Used', 'PasswordHash', 'ActivePatientID', 'Theme', 'Language', 'TextSize'],
@@ -145,7 +145,7 @@ function doPost(e) {
 
 function logMeasurement(data) {
   // M6: validate measurementType against whitelist — use return not throw (see C4)
-  var VALID_MEAS_TYPES = ['drain', 'fill', 'drain_fill', 'weight', 'bp'];
+  var VALID_MEAS_TYPES = ['drain', 'fill', 'drain_fill', 'weight', 'bp', 'ccpd'];
   var measType = String(data.measurementType || '');
   if (VALID_MEAS_TYPES.indexOf(measType) === -1) {
     return { error: 'Invalid measurement type' };
@@ -169,7 +169,10 @@ function logMeasurement(data) {
       measType,
       sanitiseForSheet(String(data.patientId       || '').slice(0, 50)),
       parseFloat(data.fillVolume)  || '',
-      sanitiseForSheet(String(data.token           || '').slice(0, 50))
+      sanitiseForSheet(String(data.token           || '').slice(0, 50)),
+      measType === 'ccpd' ? (parseInt(data.initialDrain) || 0) : '',
+      measType === 'ccpd' ? (data.ufVolume !== undefined && data.ufVolume !== '' ? parseInt(data.ufVolume) : 0) : '',
+      measType === 'ccpd' ? (parseInt(data.avgDwell) || 0) : ''
     ]);
     SpreadsheetApp.flush();
     _touchDataLastUpdated(); // must be called inside the lock — it writes to Config sheet
@@ -295,10 +298,11 @@ function getDashboard(patientId) {
     var scanRows     = Math.min(Math.max(50, patientCount * 50), 500);
     scanRows = Math.min(scanRows, totalRows);
     var startRow = measSheet.getLastRow() - scanRows + 1;
-    var mData    = measSheet.getRange(startRow, 1, scanRows, 11).getValues();
+    var mData    = measSheet.getRange(startRow, 1, scanRows, 15).getValues();
     var tz       = Session.getScriptTimeZone();
 
     var weightByDay = {};
+    var lastCcpd    = null;
     for (var i = mData.length - 1; i >= 0; i--) {
       var row = mData[i];
       if (String(row[9]) !== String(patientId)) continue;
@@ -318,11 +322,18 @@ function getDashboard(patientId) {
       if (row[3] && row[4] && bpRecent.length < 3) {
         bpRecent.push({ date: dateStr, time: timeStr, systolic: parseInt(row[3]), diastolic: parseInt(row[4]) });
       }
-      if (!lastExchange) {
-        var mType = String(row[8]);
-        if (mType === 'drain' || mType === 'fill' || mType === 'drain_fill') {
-          lastExchange = { date: dateStr, time: timeStr, type: mType };
-        }
+      var mType = String(row[8]);
+      if (!lastExchange && (mType === 'drain' || mType === 'fill' || mType === 'drain_fill')) {
+        lastExchange = { date: dateStr, time: timeStr, type: mType };
+      }
+      if (!lastCcpd && mType === 'ccpd') {
+        lastCcpd = {
+          date:         dateStr,
+          time:         timeStr,
+          initialDrain: parseInt(row[12]) || 0,
+          ufVolume:     row[13] !== '' && row[13] !== null ? parseInt(row[13]) : 0,
+          avgDwell:     parseInt(row[14]) || 0
+        };
       }
       if (Object.keys(weightByDay).length >= 7 && bpRecent.length >= 3 && lastExchange) break;
     }
@@ -349,7 +360,8 @@ function getDashboard(patientId) {
     weightTrend:     weightTrend,
     bpRecent:        bpRecent,
     bpAvg:           bpAvgSys !== null ? { systolic: bpAvgSys, diastolic: bpAvgDia } : null,
-    lastExchange:    lastExchange
+    lastExchange:    lastExchange,
+    lastCcpd:        lastCcpd
   };
 }
 
@@ -369,7 +381,7 @@ function getHistory(patientId, from, to) {
   var patientCount = Math.max(1, (ss().getSheetByName(TAB.PATIENTS) || { getLastRow: function() { return 1; } }).getLastRow() - 1);
   var tailRows = Math.max(1000, patientCount * 1000);
   var readFrom = Math.max(2, lastRow - tailRows + 1);
-  var data     = sheet.getRange(readFrom, 1, lastRow - readFrom + 1, 11).getValues();
+  var data     = sheet.getRange(readFrom, 1, lastRow - readFrom + 1, 15).getValues();
 
   var rows = [];
   for (var i = data.length - 1; i >= 0; i--) {
@@ -399,7 +411,10 @@ function getHistory(patientId, from, to) {
         return v ? String(v) : '';
       })(row[7]),
       measurementType: row[8],
-      fillVolume:      row[10] !== '' ? row[10] : ''
+      fillVolume:      row[10] !== '' ? row[10] : '',
+      initialDrain:    row[12] !== '' && row[12] !== null ? parseInt(row[12]) : '',
+      ufVolume:        row[13] !== '' && row[13] !== null ? parseInt(row[13]) : '',
+      avgDwell:        row[14] !== '' && row[14] !== null ? parseInt(row[14]) : ''
     });
   }
   return { version: _readDataLastUpdated(), rows: rows };

@@ -85,6 +85,7 @@ const MEAS_TABS = [
   { key: 'bag',    tKey: 'meas.tab.drainage', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 2.5s7 7.5 7 12.5a7 7 0 01-14 0c0-5 7-12.5 7-12.5z"/></svg>` },
   { key: 'weight', tKey: 'meas.tab.weight',   icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>` },
   { key: 'bp',     tKey: 'meas.tab.bp',       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M3 12h3l2-5 3 10 2-7 2 4h6"/></svg>` },
+  { key: 'ccpd',  tKey: 'meas.tab.ccpd',     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 2v6h-6"/><path d="M3 22v-6h6"/><path d="M20.49 9a9 9 0 00-15-3.27L3 9M3.51 15a9 9 0 0015 3.27L21 15"/></svg>` },
 ];
 
 const PROC_TYPES = [
@@ -135,6 +136,7 @@ function renderMeasurements(container, initialTab) {
       <div id="m-bag-card"></div>
       <div id="m-weight-card" style="display:none"></div>
       <div id="m-bp-card" style="display:none"></div>
+      <div id="m-ccpd-card" style="display:none"></div>
     </div>
   `;
 
@@ -155,6 +157,7 @@ function switchMeasCard(key) {
     if (key === 'bag')    buildBagCard();
     if (key === 'weight') buildWeightCard();
     if (key === 'bp')     buildBPCard();
+    if (key === 'ccpd')   buildCCPDCard();
   }
 }
 
@@ -573,6 +576,105 @@ async function submitBP() {
     setFeedback('bp', t('common.error', { msg: err.message }), 'error');
   } finally {
     btn.disabled = false; btn.textContent = t('meas.bp.save');
+  }
+}
+
+// ── CCPD card ─────────────────────────────────────────────────
+
+function buildCCPDCard() {
+  const card = document.getElementById('m-ccpd-card');
+  if (!card) return;
+
+  card.innerHTML = `
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">${t('meas.ccpd.title')}</h2>
+        <p class="card-sub">${t('meas.ccpd.sub')}</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">${t('meas.ccpd.initial_drain')}</h2>
+        <p class="card-sub">${t('meas.ccpd.initial_drain_sub')}</p>
+      </div>
+      <div class="ccpd-field-row">
+        <input type="number" class="num-input" id="ccpd-initial-drain"
+               min="0" max="9999" placeholder="0" inputmode="numeric">
+        <span class="ccpd-unit">mL</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">${t('meas.ccpd.uf')}</h2>
+        <p class="card-sub">${t('meas.ccpd.uf_sub')}</p>
+      </div>
+      <div class="ccpd-field-row">
+        <input type="number" class="num-input" id="ccpd-uf"
+               min="-9999" max="9999" placeholder="0" inputmode="numeric">
+        <span class="ccpd-unit">mL</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">${t('meas.ccpd.dwell')}</h2>
+        <p class="card-sub">${t('meas.ccpd.dwell_sub')}</p>
+      </div>
+      <div class="ccpd-field-row">
+        <input type="number" class="num-input" id="ccpd-dwell"
+               min="0" max="999" placeholder="0" inputmode="numeric">
+        <span class="ccpd-unit">min</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2 class="card-title">${t('common.notes')}</h2></div>
+      <textarea class="notes" id="ccpd-notes" placeholder="${t('common.optional')}"></textarea>
+    </section>
+
+    <div id="ccpd-feedback" class="feedback" aria-live="polite"></div>
+
+    <button class="primary-btn lg w-full" id="ccpd-submit" onclick="submitCCPD()">
+      ${t('meas.ccpd.save')}
+    </button>
+  `;
+}
+
+async function submitCCPD() {
+  const date         = nowDateStr();
+  const time         = nowTimeStr();
+  const initialDrain = parseInt(document.getElementById('ccpd-initial-drain')?.value) || 0;
+  const ufRaw        = document.getElementById('ccpd-uf')?.value;
+  const ufVolume     = ufRaw !== '' && ufRaw !== undefined ? (parseInt(ufRaw) || 0) : 0;
+  const avgDwell     = parseInt(document.getElementById('ccpd-dwell')?.value) || 0;
+  const notes        = document.getElementById('ccpd-notes')?.value.trim() || '';
+
+  const btn = document.getElementById('ccpd-submit');
+  btn.disabled = true; btn.textContent = t('common.saving');
+  setFeedback('ccpd', '', '');
+
+  try {
+    await API.logMeasurement({
+      date, time, notes,
+      initialDrain, ufVolume, avgDwell,
+      measurementType: 'ccpd',
+      patientId: getActivePatientId()
+    });
+    invalidateDashboardCache();
+    setFeedback('ccpd', t('meas.ccpd.saved'), 'success');
+
+    document.getElementById('ccpd-initial-drain').value = '';
+    document.getElementById('ccpd-uf').value            = '';
+    document.getElementById('ccpd-dwell').value         = '';
+    document.getElementById('ccpd-notes').value         = '';
+    _nowPillDate = new Date();
+    buildNowPill('now-pill-container');
+  } catch (err) {
+    setFeedback('ccpd', t('common.error', { msg: err.message }), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = t('meas.ccpd.save');
   }
 }
 

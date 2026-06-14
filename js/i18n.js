@@ -110,6 +110,25 @@ const STRINGS = {
     'meas.bp.high':           'Higher than usual range',
     'meas.bp.elevated':       'Slightly elevated',
 
+    // ── CCPD ────────────────────────────────────────────────────
+    'meas.tab.ccpd':              'CCPD',
+    'meas.ccpd.title':            'CCPD Session',
+    'meas.ccpd.sub':              'Enter results from the machine after it finishes',
+    'meas.ccpd.initial_drain':    'Initial drain volume',
+    'meas.ccpd.initial_drain_sub':'Fluid drained before cycles started',
+    'meas.ccpd.uf':               'UF volume',
+    'meas.ccpd.uf_sub':           'Net ultrafiltration (negative = absorbed)',
+    'meas.ccpd.dwell':            'Average dwell time',
+    'meas.ccpd.dwell_sub':        'Per cycle, as reported by the machine',
+    'meas.ccpd.save':             'Save CCPD session',
+    'meas.ccpd.saved':            'CCPD session saved.',
+    'dash.ccpd.title':            'Last CCPD session',
+    'dash.ccpd.ago':              '{ago}',
+    'dash.ccpd.initial_drain':    'Initial drain',
+    'dash.ccpd.uf':               'UF volume',
+    'dash.ccpd.dwell':            'Avg dwell',
+    'dash.no_ccpd':               'No CCPD sessions yet.',
+
     // ── Now pill ────────────────────────────────────────────────
     'now.now':                'Now',
     'now.today':              'Today',
@@ -315,6 +334,25 @@ const STRINGS = {
     'meas.bp.low':            'נמוך מהרגיל',
     'meas.bp.high':           'גבוה מהרגיל',
     'meas.bp.elevated':       'מעט מוגבה',
+
+    // ── CCPD ────────────────────────────────────────────────────
+    'meas.tab.ccpd':              'CCPD',
+    'meas.ccpd.title':            'סשן CCPD',
+    'meas.ccpd.sub':              'הזן תוצאות מהמכשיר לאחר סיום הטיפול',
+    'meas.ccpd.initial_drain':    'נפח ניקוז ראשוני',
+    'meas.ccpd.initial_drain_sub':'נוזל שנוקז לפני תחילת המחזורים',
+    'meas.ccpd.uf':               'נפח UF',
+    'meas.ccpd.uf_sub':           'אולטרה-פילטרציה נטו (שלילי = ספיגה)',
+    'meas.ccpd.dwell':            'זמן שהייה ממוצע',
+    'meas.ccpd.dwell_sub':        'לכל מחזור, כפי שדווח על ידי המכשיר',
+    'meas.ccpd.save':             'שמור סשן CCPD',
+    'meas.ccpd.saved':            'סשן CCPD נשמר.',
+    'dash.ccpd.title':            'סשן CCPD אחרון',
+    'dash.ccpd.ago':              '{ago}',
+    'dash.ccpd.initial_drain':    'ניקוז ראשוני',
+    'dash.ccpd.uf':               'נפח UF',
+    'dash.ccpd.dwell':            'שהייה ממוצעת',
+    'dash.no_ccpd':               'אין סשנים של CCPD עדיין.',
 
     // ── Now pill ────────────────────────────────────────────────
     'now.now':                'כעת',

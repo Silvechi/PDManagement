@@ -556,6 +556,27 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
 .bp-status.mid  .bp-status-dot { background: var(--warn); }
 .bp-status.warn .bp-status-dot { background: var(--danger); }
 
+/* CCPD number inputs */
+.num-input {
+  flex: 1; padding: 14px 12px;
+  border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text);
+  font-size: 28px; font-weight: 600; text-align: center;
+  -moz-appearance: textfield;
+}
+.num-input::-webkit-outer-spin-button,
+.num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.num-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ccpd-field-row { display: flex; align-items: center; gap: 12px; }
+.ccpd-unit { font-size: 16px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
+
+/* CCPD dashboard summary */
+.ccpd-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.ccpd-stat { background: var(--surface-2); border-radius: 10px; padding: 10px 8px; text-align: center; }
+.ccpd-stat-val { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.ccpd-stat-val .unit { font-size: 12px; font-weight: 500; color: var(--text-3); }
+.ccpd-stat-label { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+
 /* Notes */
 .notes {
   width: 100%; min-height: 70px; padding: 10px 12px;

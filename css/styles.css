@@ -463,6 +463,10 @@ textarea, input { font: inherit; }
 }
 [data-theme="dark"] .tab-pill-btn.active { background: var(--accent-soft); color: var(--accent-deep); }
 
+/* 4-tab layout: wrap into 2×2 grid */
+.tab-pill:has(.tab-pill-btn:nth-child(4)) { flex-wrap: wrap; border-radius: 14px; }
+.tab-pill:has(.tab-pill-btn:nth-child(4)) .tab-pill-btn { flex: 1 1 calc(50% - 4px); }
+
 .seg-row { display: flex; gap: 6px; }
 .seg {
   flex: 1; padding: 12px 14px; border: 1px solid var(--border);
@@ -569,6 +573,13 @@ input.stepper-val::-webkit-inner-spin-button { -webkit-appearance: none; margin:
 .num-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ccpd-field-row { display: flex; align-items: center; gap: 12px; }
 .ccpd-unit { font-size: 16px; font-weight: 600; color: var(--text-3); white-space: nowrap; }
+
+/* CCPD bag usage list */
+.ccpd-bag-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-2); }
+.ccpd-bag-item:last-child { border-bottom: 0; }
+.ccpd-bag-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.ccpd-bag-name { font-size: 14px; font-weight: 500; }
+.ccpd-bag-stock { font-size: 12px; color: var(--text-3); }
 
 /* CCPD dashboard summary */
 .ccpd-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }

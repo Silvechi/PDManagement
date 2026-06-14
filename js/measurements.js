@@ -110,6 +110,8 @@ let _bpSH = null, _bpST = null, _bpSO = null;
 let _bpDH = null, _bpDT = null, _bpDO = null;
 
 let _activeBagItems = [];
+let _ccpdBagItems   = [];
+let _ccpdBagUsage   = {};
 
 function renderMeasurements(container, initialTab) {
   _nowPillDate = new Date();
@@ -585,6 +587,36 @@ function buildCCPDCard() {
   const card = document.getElementById('m-ccpd-card');
   if (!card) return;
 
+  const _dash = typeof getDashboardData === 'function' ? getDashboardData() : null;
+  const _cfg  = _dash?.inventoryConfig || [];
+  _ccpdBagItems = _cfg.filter(item => isBagItem(item) && isActiveBagItem(item));
+  _ccpdBagUsage = {};
+  _ccpdBagItems.forEach(item => { _ccpdBagUsage[item.name] = 0; });
+
+  const inv = _dash?.inventory;
+
+  const bagListHtml = _ccpdBagItems.length
+    ? _ccpdBagItems.map((item, i) => {
+        const c     = bagColorsFor(item);
+        const label = bagDisplayName(item);
+        const stock = inv ? (inv[item.name] ?? '?') : '?';
+        return `
+          <div class="ccpd-bag-item">
+            <div class="ccpd-bag-info">
+              <span class="bag-dot" style="--bag:${c.color};--bag-soft:${c.soft};--bag-deep:${c.deep}"></span>
+              <span class="ccpd-bag-name">${escHtml(label)}</span>
+              <span class="ccpd-bag-stock">${t('meas.in_stock', { count: stock })}</span>
+            </div>
+            <div class="stepper">
+              <button onclick="adjustCcpdBag(${i},-1)">${MINUS_ICON}</button>
+              <span class="stepper-val" id="ccpd-bag-${i}-val">0</span>
+              <button onclick="adjustCcpdBag(${i},1)">${PLUS_ICON}</button>
+            </div>
+          </div>
+        `;
+      }).join('')
+    : `<p class="no-data">${t('meas.ccpd.no_bags')}</p>`;
+
   card.innerHTML = `
     <section class="card">
       <div class="card-head">
@@ -630,6 +662,11 @@ function buildCCPDCard() {
     </section>
 
     <section class="card">
+      <div class="card-head"><h2 class="card-title">${t('meas.ccpd.bags_used')}</h2></div>
+      ${bagListHtml}
+    </section>
+
+    <section class="card">
       <div class="card-head"><h2 class="card-title">${t('common.notes')}</h2></div>
       <textarea class="notes" id="ccpd-notes" placeholder="${t('common.optional')}"></textarea>
     </section>
@@ -640,6 +677,14 @@ function buildCCPDCard() {
       ${t('meas.ccpd.save')}
     </button>
   `;
+}
+
+function adjustCcpdBag(idx, delta) {
+  const item = _ccpdBagItems[idx];
+  if (!item) return;
+  _ccpdBagUsage[item.name] = Math.max(0, (_ccpdBagUsage[item.name] || 0) + delta);
+  const el = document.getElementById(`ccpd-bag-${idx}-val`);
+  if (el) el.textContent = _ccpdBagUsage[item.name];
 }
 
 async function submitCCPD() {
@@ -663,12 +708,30 @@ async function submitCCPD() {
       patientId: getActivePatientId()
     });
     invalidateDashboardCache();
+
+    // Deduct bags from inventory
+    const inv = (typeof getDashboardData === 'function' ? getDashboardData() : null)?.inventory ?? null;
+    if (inv) {
+      const deductItems = _ccpdBagItems
+        .filter(item => (_ccpdBagUsage[item.name] || 0) > 0)
+        .map(item => ({ name: item.name, count: Math.max(0, (inv[item.name] ?? 0) - _ccpdBagUsage[item.name]) }));
+      if (deductItems.length) {
+        await API.updateInventory({ datetime: date + ' ' + time, items: deductItems, patientId: getActivePatientId() });
+        deductItems.forEach(i => { inv[i.name] = i.count; });
+      }
+    }
+
     setFeedback('ccpd', t('meas.ccpd.saved'), 'success');
 
     document.getElementById('ccpd-initial-drain').value = '';
     document.getElementById('ccpd-uf').value            = '';
     document.getElementById('ccpd-dwell').value         = '';
     document.getElementById('ccpd-notes').value         = '';
+    _ccpdBagItems.forEach((_, i) => {
+      _ccpdBagUsage[_ccpdBagItems[i].name] = 0;
+      const el = document.getElementById(`ccpd-bag-${i}-val`);
+      if (el) el.textContent = '0';
+    });
     _nowPillDate = new Date();
     buildNowPill('now-pill-container');
   } catch (err) {
